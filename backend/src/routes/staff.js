@@ -15,7 +15,9 @@ router.get('/', asyncHandler(async (req, res) => {
   const { role } = req.query;
   const filter = role ? { role } : { role: { $in: ['TEACHER', 'ACCOUNTANT'] } };
   const users = await User.find(filter).select('-password');
-  const profiles = await StaffProfile.find({ user: { $in: users.map((u) => u._id) } }).populate('branch');
+  const profiles = await StaffProfile.find({ user: { $in: users.map((u) => u._id) } })
+    .populate('branch')
+    .populate('batch');
   const map = {};
   profiles.forEach((p) => { map[p.user.toString()] = p; });
   const result = users.map((u) => ({ ...u.toObject(), staffProfile: map[u._id.toString()] || null }));

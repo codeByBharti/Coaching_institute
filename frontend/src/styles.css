@@ -393,7 +393,8 @@ button:disabled {
 }
 
 .data-table.staff-table .table-row {
-  grid-template-columns: 1.5fr 1.8fr 1fr 1.2fr 0.9fr 1.6fr;
+  /* Name, Email, Role, Branch, Batch, Status, Action */
+  grid-template-columns: 1.4fr 1.8fr 0.9fr 1.3fr 1.3fr 0.9fr 1.6fr;
 }
 
 .data-table.student-table .table-row {
@@ -500,9 +501,9 @@ button:disabled {
 }
 
 .btn-action {
-  font-size: 0.75rem !important;
-  padding: 0.3rem 0.6rem !important;
-  border-radius: 6px;
+  font-size: 0.85rem !important;
+  padding: 0.35rem 0.75rem !important;
+  border-radius: 8px;
 }
 
 .btn-edit {

@@ -40,6 +40,9 @@ export default function AdminDashboard() {
   });
   const [editStudent, setEditStudent] = useState(null);
   const [editStaff, setEditStaff] = useState(null);
+  const [editBranch, setEditBranch] = useState(null);
+  const [editCourse, setEditCourse] = useState(null);
+  const [editBatch, setEditBatch] = useState(null);
 
   const load = async () => {
     try {
@@ -63,6 +66,7 @@ export default function AdminDashboard() {
       setSalaries(sal.data);
     } catch (e) {
       console.error(e);
+      alert(e.response?.data?.message || 'Failed to load data');
     }
   };
 
@@ -70,64 +74,146 @@ export default function AdminDashboard() {
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    await axios.post('/api/admin/users', newUser);
-    setNewUser({
-      name: '',
-      email: '',
-      password: '',
-      role: 'STUDENT',
-      studentId: '',
-      branch: '',
-      course: '',
-      batch: '',
-    });
-    load();
+    try {
+      await axios.post('/api/admin/users', newUser);
+      setNewUser({ name: '', email: '', password: '', role: 'STUDENT', studentId: '', branch: '', course: '', batch: '' });
+      load();
+      alert('Student created successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create student');
+    }
   };
 
   const handleCreateBranch = async (e) => {
     e.preventDefault();
-    const res = await axios.post('/api/branches', newBranch);
-    setBranches((prev) => [...prev, res.data]);
-    setNewBranch({ name: '', code: '', address: '', phone: '' });
+    try {
+      const res = await axios.post('/api/branches', newBranch);
+      setBranches((prev) => [...prev, res.data]);
+      setNewBranch({ name: '', code: '', address: '', phone: '' });
+      alert('Branch created successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create branch');
+    }
+  };
+
+  const handleUpdateBranch = async () => {
+    if (!editBranch) return;
+    try {
+      await axios.patch(`/api/branches/${editBranch.id}`, editBranch);
+      setEditBranch(null);
+      load();
+      alert('Branch updated successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update branch');
+    }
+  };
+
+  const handleDeleteBranch = async (id) => {
+    if (!window.confirm('Delete this branch? Associated data may be affected.')) return;
+    try {
+      await axios.delete(`/api/branches/${id}`);
+      load();
+      alert('Branch deleted');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete branch');
+    }
   };
 
   const handleCreateCourse = async (e) => {
     e.preventDefault();
-    const res = await axios.post('/api/courses', {
-      ...newCourse,
-      branch: newCourse.branch || branches[0]?._id,
-    });
-    setCourses((prev) => [...prev, res.data]);
-    setNewCourse({ name: '', code: '', branch: '', durationMonths: 12, feeAmount: 0 });
+    const branchId = newCourse.branch || branches[0]?._id;
+    if (!branchId) { alert('Please select a branch first'); return; }
+    try {
+      const res = await axios.post('/api/courses', { ...newCourse, branch: branchId });
+      setCourses((prev) => [...prev, res.data]);
+      setNewCourse({ name: '', code: '', branch: '', durationMonths: 12, feeAmount: 0 });
+      alert('Course created successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create course');
+    }
+  };
+
+  const handleUpdateCourse = async () => {
+    if (!editCourse) return;
+    try {
+      await axios.patch(`/api/courses/${editCourse.id}`, editCourse);
+      setEditCourse(null);
+      load();
+      alert('Course updated successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update course');
+    }
+  };
+
+  const handleDeleteCourse = async (id) => {
+    if (!window.confirm('Delete this course? Associated batches may be affected.')) return;
+    try {
+      await axios.delete(`/api/courses/${id}`);
+      load();
+      alert('Course deleted');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete course');
+    }
   };
 
   const handleCreateBatch = async (e) => {
     e.preventDefault();
     const branchId = newBatch.branch || branches[0]?._id;
     const courseId = newBatch.course || courses[0]?._id;
-    const res = await axios.post('/api/batches', {
-      ...newBatch,
-      branch: branchId,
-      course: courseId,
-    });
-    setBatches((prev) => [...prev, res.data]);
-    setNewBatch({ name: '', code: '', course: '', branch: '' });
+    if (!branchId || !courseId) { alert('Please select branch and course'); return; }
+    try {
+      const res = await axios.post('/api/batches', { ...newBatch, branch: branchId, course: courseId });
+      setBatches((prev) => [...prev, res.data]);
+      setNewBatch({ name: '', code: '', course: '', branch: '' });
+      alert('Batch created successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create batch');
+    }
+  };
+
+  const handleUpdateBatch = async () => {
+    if (!editBatch) return;
+    try {
+      await axios.patch(`/api/batches/${editBatch.id}`, editBatch);
+      setEditBatch(null);
+      load();
+      alert('Batch updated successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update batch');
+    }
+  };
+
+  const handleDeleteBatch = async (id) => {
+    if (!window.confirm('Delete this batch?')) return;
+    try {
+      await axios.delete(`/api/batches/${id}`);
+      load();
+      alert('Batch deleted');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete batch');
+    }
   };
 
   const handleStatusToggle = async (id, isActive) => {
-    await axios.patch(`/api/admin/users/${id}/status`, { isActive: !isActive });
-    load();
+    try {
+      await axios.patch(`/api/admin/users/${id}/status`, { isActive: !isActive });
+      load();
+    } catch (err) { alert(err.response?.data?.message || 'Failed to update status'); }
   };
 
   const handleStudentStatus = async (userId, status) => {
-    await axios.patch(`/api/admin/students/${userId}/status`, { status });
-    load();
+    try {
+      await axios.patch(`/api/admin/students/${userId}/status`, { status });
+      load();
+    } catch (err) { alert(err.response?.data?.message || 'Failed'); }
   };
 
   const handleDeleteUser = async (id) => {
     if (!window.confirm('Are you sure you want to permanently delete this user?')) return;
-    await axios.delete(`/api/admin/users/${id}`);
-    load();
+    try {
+      await axios.delete(`/api/admin/users/${id}`);
+      load();
+    } catch (err) { alert(err.response?.data?.message || 'Failed to delete'); }
   };
 
   const saveStudentEdit = async () => {
@@ -159,6 +245,7 @@ export default function AdminDashboard() {
         branch: editStaff.branch,
         designation: editStaff.designation,
         phone: editStaff.phone,
+        batch: editStaff.batch,
       });
       alert('Staff updated successfully');
       setEditStaff(null);
@@ -224,15 +311,19 @@ export default function AdminDashboard() {
             <h4>Create Notification</h4>
             <form
               className="form-section"
-              onSubmit={async (e) => {
-                e.preventDefault();
-                await axios.post('/api/notifications/broadcast', {
+            onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+              await axios.post('/api/notifications/broadcast', {
                   scope: notifForm.scope,
                   title: notifForm.title,
                   message: notifForm.message,
                   type: 'GENERAL',
                 });
                 setNotifForm({ scope: 'ALL', title: '', message: '' });
+              } catch (err) {
+                alert(err.response?.data?.message || 'Failed to send');
+              }
               }}
             >
               <select
@@ -272,17 +363,35 @@ export default function AdminDashboard() {
             <input placeholder="Phone" value={newBranch.phone} onChange={(e) => setNewBranch((p) => ({ ...p, phone: e.target.value }))} />
             <button type="submit">Add Branch</button>
           </form>
+          {editBranch && (
+            <div className="chart-card">
+              <h4>Edit Branch</h4>
+              <div className="form-section">
+                <input placeholder="Name" value={editBranch.name} onChange={(e) => setEditBranch((p) => ({ ...p, name: e.target.value }))} />
+                <input placeholder="Code" value={editBranch.code} onChange={(e) => setEditBranch((p) => ({ ...p, code: e.target.value }))} />
+                <input placeholder="Address" value={editBranch.address || ''} onChange={(e) => setEditBranch((p) => ({ ...p, address: e.target.value }))} />
+                <input placeholder="Phone" value={editBranch.phone || ''} onChange={(e) => setEditBranch((p) => ({ ...p, phone: e.target.value }))} />
+                <button type="button" onClick={handleUpdateBranch}>Save</button>
+                <button type="button" onClick={() => setEditBranch(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
           <div className="data-table admin-table">
             <div className="table-row table-header">
               <div>Name</div>
               <div>Code</div>
               <div>Address</div>
+              <div>Actions</div>
             </div>
             {branches.map((b) => (
               <div key={b._id} className="table-row">
                 <div>{b.name}</div>
                 <div>{b.code}</div>
                 <div>{b.address || '-'}</div>
+                <div className="action-buttons">
+                  <button type="button" className="btn-edit" onClick={() => setEditBranch({ id: b._id, name: b.name, code: b.code, address: b.address, phone: b.phone })}>Edit</button>
+                  <button type="button" onClick={() => handleDeleteBranch(b._id)}>Delete</button>
+                </div>
               </div>
             ))}
           </div>
@@ -315,12 +424,29 @@ export default function AdminDashboard() {
             />
             <button type="submit">Add Course</button>
           </form>
+          {editCourse && (
+            <div className="chart-card">
+              <h4>Edit Course</h4>
+              <div className="form-section">
+                <input placeholder="Name" value={editCourse.name} onChange={(e) => setEditCourse((p) => ({ ...p, name: e.target.value }))} />
+                <input placeholder="Code" value={editCourse.code} onChange={(e) => setEditCourse((p) => ({ ...p, code: e.target.value }))} />
+                <select value={editCourse.branch} onChange={(e) => setEditCourse((p) => ({ ...p, branch: e.target.value }))}>
+                  <option value="">Select Branch</option>
+                  {branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+                <input type="number" placeholder="Fee" value={editCourse.feeAmount} onChange={(e) => setEditCourse((p) => ({ ...p, feeAmount: e.target.value }))} />
+                <button type="button" onClick={handleUpdateCourse}>Save</button>
+                <button type="button" onClick={() => setEditCourse(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
           <div className="data-table admin-table">
             <div className="table-row table-header">
               <div>Name</div>
               <div>Code</div>
               <div>Branch</div>
               <div>Fee</div>
+              <div>Actions</div>
             </div>
             {courses.map((c) => (
               <div key={c._id} className="table-row">
@@ -328,6 +454,10 @@ export default function AdminDashboard() {
                 <div>{c.code}</div>
                 <div>{c.branch?.name || '-'}</div>
                 <div>₹{c.feeAmount?.toLocaleString()}</div>
+                <div className="action-buttons">
+                  <button type="button" className="btn-edit" onClick={() => setEditCourse({ id: c._id, name: c.name, code: c.code, branch: c.branch?._id || '', feeAmount: c.feeAmount })}>Edit</button>
+                  <button type="button" onClick={() => handleDeleteCourse(c._id)}>Delete</button>
+                </div>
               </div>
             ))}
           </div>
@@ -350,17 +480,41 @@ export default function AdminDashboard() {
             </select>
             <button type="submit">Add Batch</button>
           </form>
+          {editBatch && (
+            <div className="chart-card">
+              <h4>Edit Batch</h4>
+              <div className="form-section">
+                <input placeholder="Name" value={editBatch.name} onChange={(e) => setEditBatch((p) => ({ ...p, name: e.target.value }))} />
+                <input placeholder="Code" value={editBatch.code} onChange={(e) => setEditBatch((p) => ({ ...p, code: e.target.value }))} />
+                <select value={editBatch.course} onChange={(e) => setEditBatch((p) => ({ ...p, course: e.target.value }))}>
+                  <option value="">Select Course</option>
+                  {courses.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                </select>
+                <select value={editBatch.branch} onChange={(e) => setEditBatch((p) => ({ ...p, branch: e.target.value }))}>
+                  <option value="">Select Branch</option>
+                  {branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
+                <button type="button" onClick={handleUpdateBatch}>Save</button>
+                <button type="button" onClick={() => setEditBatch(null)}>Cancel</button>
+              </div>
+            </div>
+          )}
           <div className="data-table admin-table">
             <div className="table-row table-header">
               <div>Name</div>
               <div>Code</div>
               <div>Course</div>
+              <div>Actions</div>
             </div>
             {batches.map((b) => (
               <div key={b._id} className="table-row">
                 <div>{b.name}</div>
                 <div>{b.code}</div>
                 <div>{b.course?.name || '-'}</div>
+                <div className="action-buttons">
+                  <button type="button" className="btn-edit" onClick={() => setEditBatch({ id: b._id, name: b.name, code: b.code, course: b.course?._id || '', branch: b.branch?._id || '' })}>Edit</button>
+                  <button type="button" onClick={() => handleDeleteBatch(b._id)}>Delete</button>
+                </div>
               </div>
             ))}
           </div>
@@ -534,6 +688,10 @@ export default function AdminDashboard() {
                   <option value="">No Branch</option>
                   {branches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
                 </select>
+                <select value={editStaff.batch || ''} onChange={(e) => setEditStaff((p) => ({ ...p, batch: e.target.value }))}>
+                  <option value="">No Batch</option>
+                  {batches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
+                </select>
                 <input
                   placeholder="Designation"
                   value={editStaff.designation}
@@ -547,15 +705,20 @@ export default function AdminDashboard() {
           <form className="form-section" onSubmit={async (e) => {
             e.preventDefault();
             const fd = new FormData(e.target);
-            await axios.post('/api/staff/register', {
-              name: fd.get('name'),
-              email: fd.get('email'),
-              password: fd.get('password'),
-              role: fd.get('role'),
-              branch: fd.get('branch') || undefined,
-            });
-            e.target.reset();
-            load();
+            try {
+              await axios.post('/api/staff/register', {
+                name: fd.get('name'),
+                email: fd.get('email'),
+                password: fd.get('password'),
+                role: fd.get('role'),
+                branch: fd.get('branch') || undefined,
+              });
+              e.target.reset();
+              load();
+              alert('Staff registered successfully');
+            } catch (err) {
+              alert(err.response?.data?.message || 'Failed to register staff');
+            }
           }}>
             <input name="name" placeholder="Name" required />
             <input name="email" type="email" placeholder="Email" required />
@@ -577,6 +740,7 @@ export default function AdminDashboard() {
               <div>Email</div>
               <div>Role</div>
               <div>Branch</div>
+              <div>Batch</div>
               <div>Status</div>
               <div>Action</div>
             </div>
@@ -586,6 +750,7 @@ export default function AdminDashboard() {
                 <div>{u.email}</div>
                 <div>{u.role}</div>
                 <div>{u.staffProfile?.branch?.name || '-'}</div>
+                 <div>{u.staffProfile?.batch?.name || '-'}</div>
                 <div>{u.isActive ? 'Active' : 'Inactive'}</div>
                 <div>
                   <div className="action-buttons">
@@ -599,6 +764,7 @@ export default function AdminDashboard() {
                           email: u.email || '',
                           phone: u.staffProfile?.phone || '',
                           branch: u.staffProfile?.branch?._id || '',
+                          batch: u.staffProfile?.batch?._id || '',
                           designation: u.staffProfile?.designation || u.role,
                         })
                       }
@@ -618,6 +784,7 @@ export default function AdminDashboard() {
             className="form-section"
             onSubmit={async (e) => {
               e.preventDefault();
+              try {
               await axios.post('/api/staff/salaries', {
                 staff: salaryForm.staff,
                 amount: Number(salaryForm.amount),
@@ -627,6 +794,7 @@ export default function AdminDashboard() {
               });
               setSalaryForm((p) => ({ ...p, amount: '' }));
               load();
+              } catch (err) { alert(err.response?.data?.message || 'Failed'); }
             }}
           >
             <select

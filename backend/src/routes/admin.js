@@ -30,6 +30,9 @@ router.post('/users', asyncHandler(async (req, res) => {
   }
   const existing = await User.findOne({ email });
   if (existing) return res.status(409).json({ message: 'Email already registered' });
+  if (role === 'STUDENT' && (!branch || !course || !batch)) {
+    return res.status(400).json({ message: 'Student must have branch, course and batch' });
+  }
   const hashed = await bcrypt.hash(password, 10);
   const user = await User.create({ name, email, password: hashed, role });
   if (role === 'STUDENT') {
@@ -40,11 +43,19 @@ router.post('/users', asyncHandler(async (req, res) => {
       branch: branch || null,
       course: course || null,
       batch: batch || null,
-      rollNumber: `R${user._id.toString().slice(-4)}`,
       phone: phone || null,
       guardianName: guardianName || null,
       guardianContact: guardianContact || null,
       status: 'ACTIVE',
+    });
+  } else if (role === 'TEACHER' || role === 'ACCOUNTANT') {
+    await StaffProfile.create({
+      user: user._id,
+      branch: branch || null,
+      batch: batch || null,
+      designation: role,
+      phone: phone || null,
+      joiningDate: new Date(),
     });
   }
   res.status(201).json({ id: user._id });
@@ -52,7 +63,7 @@ router.post('/users', asyncHandler(async (req, res) => {
 
 router.get('/users', asyncHandler(async (req, res) => {
   const { role } = req.query;
-  const filter = role ? { role } : {};
+  const filter = role ? { role } : { role: { $in: ['STUDENT', 'TEACHER', 'ACCOUNTANT'] } };
   const users = await User.find(filter).select('-password');
   const studentIds = users.filter((u) => u.role === 'STUDENT').map((u) => u._id);
   const profiles = await StudentProfile.find({ user: { $in: studentIds } })
@@ -80,9 +91,17 @@ router.get('/users', asyncHandler(async (req, res) => {
     });
   }
 
+  const staffIds = users.filter((u) => u.role === 'TEACHER' || u.role === 'ACCOUNTANT').map((u) => u._id);
+  const staffProfiles = await StaffProfile.find({ user: { $in: staffIds } })
+    .populate('branch', 'name code')
+    .populate('batch', 'name code');
+  const staffProfileMap = {};
+  staffProfiles.forEach((p) => { staffProfileMap[p.user.toString()] = p; });
+
   const result = users.map((u) => ({
     ...u.toObject(),
     studentProfile: u.role === 'STUDENT' ? profileMap[u._id.toString()] || null : null,
+    staffProfile: (u.role === 'TEACHER' || u.role === 'ACCOUNTANT') ? staffProfileMap[u._id.toString()] || null : null,
     feeStatus: u.role === 'STUDENT' ? feeStatusMap[u._id.toString()] || 'NONE' : undefined,
   }));
   res.json(result);
@@ -164,9 +183,10 @@ router.patch('/users/:id', asyncHandler(async (req, res) => {
     if (status !== undefined) update.status = status;
     await StudentProfile.findOneAndUpdate({ user: user._id }, { $set: update }, { new: true });
   } else if (['TEACHER', 'ACCOUNTANT'].includes(user.role)) {
-    const { branch, phone, designation, subjects, specialization, department } = req.body;
+    const { branch, batch, phone, designation, subjects, specialization, department } = req.body;
     const update = { user: user._id };
     if (branch !== undefined) update.branch = branch || null;
+    if (batch !== undefined) update.batch = batch || null;
     if (phone !== undefined) update.phone = phone || null;
     if (designation !== undefined) update.designation = designation || user.role;
     if (subjects !== undefined) update.subjects = subjects;

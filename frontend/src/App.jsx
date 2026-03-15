@@ -83,7 +83,7 @@ function AppShell() {
       <Route
         path="/reports"
         element={
-          <ProtectedRoute roles={['ADMIN', 'TEACHER', 'ACCOUNTANT']}>
+          <ProtectedRoute roles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT']}>
             <ReportsPage />
           </ProtectedRoute>
         }

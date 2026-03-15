@@ -8,7 +8,7 @@ export default function TeacherDashboard() {
   const [exams, setExams] = useState([]);
   const [homework, setHomework] = useState([]);
   const [attempts, setAttempts] = useState([]);
-  const [batches, setBatches] = useState([]);
+  const [teacherBatch, setTeacherBatch] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [marksForm, setMarksForm] = useState({ examId: '', studentId: '', marksObtained: '', grade: '' });
   const [classForm, setClassForm] = useState({ title: '', subject: '', scheduledAt: '', durationMinutes: 60, provider: 'ZOOM', joinUrl: '' });
@@ -22,18 +22,18 @@ export default function TeacherDashboard() {
   const [attendanceForm, setAttendanceForm] = useState({ date: '', studentId: '', status: 'PRESENT' });
 
   const load = async () => {
-    const [lc, ex, hw, bat, notifs] = await Promise.all([
+    const [me, lc, ex, hw, notifs] = await Promise.all([
+      axios.get('/api/auth/me'),
       axios.get('/api/teacher/live-classes'),
       axios.get('/api/teacher/exams'),
       axios.get('/api/homework'),
-      axios.get('/api/batches').catch(() => ({ data: [] })),
       axios.get('/api/notifications').catch(() => ({ data: [] })),
     ]);
     setLiveClasses(lc.data);
     setExams(ex.data);
     setHomework(hw.data);
-    setBatches(bat.data || []);
     setNotifications(notifs.data || []);
+    setTeacherBatch(me.data.staffProfile?.batch || null);
   };
 
   useEffect(() => { load(); }, []);
@@ -121,11 +121,16 @@ export default function TeacherDashboard() {
   const handleAttendanceSubmit = async (e) => {
     e.preventDefault();
     if (!attendanceForm.studentId) return;
-    await axios.post('/api/teacher/attendance', {
-      date: attendanceForm.date || undefined,
-      records: [{ studentId: attendanceForm.studentId, status: attendanceForm.status }],
-    });
-    setAttendanceForm({ date: '', studentId: '', status: 'PRESENT' });
+    try {
+      await axios.post('/api/teacher/attendance', {
+        date: attendanceForm.date || new Date().toISOString().slice(0, 10),
+        records: [{ studentId: attendanceForm.studentId.trim(), status: attendanceForm.status }],
+      });
+      setAttendanceForm({ date: '', studentId: '', status: 'PRESENT' });
+      alert('Attendance marked successfully');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to mark attendance');
+    }
   };
 
   return (
@@ -138,11 +143,11 @@ export default function TeacherDashboard() {
             <div className="stat-card"><div className="stat-label">Exams</div><div className="stat-value">{exams.length}</div></div>
             <div className="stat-card"><div className="stat-label">Study Material</div><div className="stat-value">{homework.length}</div></div>
             <div className="stat-card">
-              <div className="stat-label">Batches</div>
-              <div className="stat-value">{batches.length}</div>
-              {batches[0] && (
+              <div className="stat-label">Batch</div>
+              <div className="stat-value">{teacherBatch ? 1 : 0}</div>
+              {teacherBatch && (
                 <div className="stat-subtext">
-                  {batches[0].name} · {batches[0].course?.name}
+                  {teacherBatch.name} · {teacherBatch.course?.name || ''}
                 </div>
               )}
             </div>

@@ -7,7 +7,7 @@ async function connectDb() {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
-    console.log('MongoDB connected');
+    console.log('Database is connected');
     // Drop legacy rollNumber unique index to fix E11000 duplicate key error
     try {
       const StudentProfile = require('../models/StudentProfile');

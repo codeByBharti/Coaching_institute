@@ -8,7 +8,7 @@ const Batch = require('../models/Batch');
 
 const router = express.Router();
 
-router.use(auth(), requireRole('ADMIN', 'TEACHER', 'ACCOUNTANT'));
+router.use(auth(), requireRole('ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT'));
 
 router.get('/attendance-summary', asyncHandler(async (req, res) => {
   const { from, to, batch } = req.query;
@@ -65,9 +65,10 @@ router.get('/attendance-batch-wise', asyncHandler(async (req, res) => {
         present: { $sum: { $cond: [{ $eq: ['$status', 'PRESENT'] }, 1, 0] } },
       },
     },
+    { $lookup: { from: 'batches', localField: '_id', foreignField: '_id', as: 'batchDoc' } },
     {
       $project: {
-        batch: '$_id',
+        batch: { $ifNull: [{ $arrayElemAt: ['$batchDoc.name', 0] }, 'Unassigned'] },
         _id: 0,
         total: 1,
         present: 1,

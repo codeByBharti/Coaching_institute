@@ -18,6 +18,7 @@ export default function ReportsPage() {
   const [analytics, setAnalytics] = useState(null);
 
   const load = async () => {
+    try {
     const [att, bw, mon, ex, fee, rk, an] = await Promise.all([
       axios.get('/api/reports/attendance-summary').catch(() => ({ data: [] })),
       axios.get('/api/reports/attendance-batch-wise').catch(() => ({ data: [] })),
@@ -34,6 +35,9 @@ export default function ReportsPage() {
     setFeeStatus(fee.data);
     setRanks(rk.data);
     setAnalytics(an?.data || null);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -122,7 +126,7 @@ export default function ReportsPage() {
                     {
                       name: 'Overall',
                       present:
-                        monthly.reduce((sum, m) => sum + (m.present || 0), 0) / monthly.length,
+                        monthly.reduce((sum, m) => sum + (m.present || 0), 0) / (monthly.length || 1),
                     },
                   ]}
                 >

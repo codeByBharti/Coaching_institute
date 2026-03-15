@@ -19,6 +19,8 @@ function generateReceiptNo() {
 
 router.post('/fees', asyncHandler(async (req, res) => {
   const { student, studentId, amount, dueDate, status, paymentDate, method, reference, branch } = req.body;
+  if (!amount || amount <= 0) return res.status(400).json({ message: 'Valid amount is required' });
+  if (!dueDate) return res.status(400).json({ message: 'Due date is required' });
 
   let studentUser = null;
   if (studentId) {
@@ -35,15 +37,15 @@ router.post('/fees', asyncHandler(async (req, res) => {
     return res.status(400).json({ message: 'Invalid student' });
   }
 
-  const receiptNo = generateReceiptNo();
+  const feeStatus = status || 'PENDING';
   const fee = await FeePayment.create({
     student: studentUser._id,
     branch: branch || null,
-    receiptNo,
+    receiptNo: feeStatus === 'PAID' ? generateReceiptNo() : undefined,
     amount,
-    dueDate,
-    status: status || 'PENDING',
-    paymentDate,
+    dueDate: new Date(dueDate),
+    status: feeStatus,
+    paymentDate: feeStatus === 'PAID' ? (paymentDate ? new Date(paymentDate) : new Date()) : undefined,
     method: method || 'CASH',
     reference,
   });
@@ -51,7 +53,12 @@ router.post('/fees', asyncHandler(async (req, res) => {
 }));
 
 router.patch('/fees/:id', asyncHandler(async (req, res) => {
-  const update = { ...req.body };
+  const { status, paymentDate, method, reference } = req.body;
+  const update = {};
+  if (status !== undefined) update.status = status;
+  if (paymentDate !== undefined) update.paymentDate = paymentDate ? new Date(paymentDate) : null;
+  if (method !== undefined) update.method = method;
+  if (reference !== undefined) update.reference = reference;
   const existing = await FeePayment.findById(req.params.id);
   if (!existing) return res.status(404).json({ message: 'Fee record not found' });
 

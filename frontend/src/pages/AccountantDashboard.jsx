@@ -31,9 +31,24 @@ export default function AccountantDashboard() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await axios.post('/api/accountant/fees', { ...form, amount: Number(form.amount) });
-    setForm({ studentId: '', amount: '', dueDate: '', status: 'PENDING', method: 'CASH' });
-    load();
+    try {
+      await axios.post('/api/accountant/fees', { ...form, amount: Number(form.amount), dueDate: form.dueDate || new Date().toISOString().slice(0, 10) });
+      setForm({ studentId: '', amount: '', dueDate: '', status: 'PENDING', method: 'CASH' });
+      load();
+      alert('Fee record saved');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to save fee');
+    }
+  };
+
+  const handleMarkPaid = async (feeId) => {
+    try {
+      await axios.patch(`/api/accountant/fees/${feeId}`, { status: 'PAID', paymentDate: new Date().toISOString() });
+      load();
+      alert('Fee marked as paid. Receipt generated.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed');
+    }
   };
 
   const feeChartData = feeStatus.map((f) => ({
@@ -50,16 +65,22 @@ export default function AccountantDashboard() {
   const handleReceiptSubmit = async (e) => {
     e.preventDefault();
     if (!receiptForm.studentId || !receiptForm.amount) return;
-    await axios.post('/api/accountant/fees', {
-      studentId: receiptForm.studentId,
-      amount: Number(receiptForm.amount),
-      dueDate: receiptForm.paymentDate || new Date().toISOString(),
-      paymentDate: receiptForm.paymentDate || new Date().toISOString(),
-      status: 'PAID',
-      method: 'CASH',
-    });
-    setReceiptForm({ studentId: '', amount: '', paymentDate: '' });
-    load();
+    try {
+      const d = receiptForm.paymentDate || new Date().toISOString().slice(0, 10);
+      await axios.post('/api/accountant/fees', {
+        studentId: receiptForm.studentId,
+        amount: Number(receiptForm.amount),
+        dueDate: d,
+        paymentDate: d,
+        status: 'PAID',
+        method: 'CASH',
+      });
+      setReceiptForm({ studentId: '', amount: '', paymentDate: '' });
+      load();
+      alert('Receipt created');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to create receipt');
+    }
   };
 
   return (
@@ -136,7 +157,7 @@ export default function AccountantDashboard() {
           </form>
           <h4>Fee Records</h4>
           <div className="data-table admin-table">
-            <div className="table-row table-header"><div>Student</div><div>Amount</div><div>Status</div><div>Due Date</div><div>Receipt</div></div>
+            <div className="table-row table-header"><div>Student</div><div>Amount</div><div>Status</div><div>Due Date</div><div>Receipt</div><div>Actions</div></div>
             {fees.map((f) => (
               <div key={f._id} className="table-row">
                 <div>{f.student?.name || f.student?._id}</div>
@@ -144,6 +165,11 @@ export default function AccountantDashboard() {
                 <div><span className={`badge badge-${f.status?.toLowerCase()}`}>{f.status}</span></div>
                 <div>{new Date(f.dueDate).toLocaleDateString()}</div>
                 <div>{f.receiptNo || '-'}</div>
+                <div className="action-buttons">
+                  {f.status === 'PENDING' && (
+                    <button type="button" className="btn-action" onClick={() => handleMarkPaid(f._id)}>Mark Paid</button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

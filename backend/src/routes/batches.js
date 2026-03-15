@@ -21,12 +21,26 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
-  const batch = await Batch.create(req.body);
+  const { name, code, course, branch } = req.body;
+  if (!name || !code || !course || !branch) return res.status(400).json({ message: 'Batch name, code, course and branch are required' });
+  const batch = await Batch.create({ name: name.trim(), code: code.trim(), course, branch });
   res.status(201).json(await batch.populate(['branch', 'course']));
 }));
 
+router.delete('/:id', asyncHandler(async (req, res) => {
+  const batch = await Batch.findByIdAndDelete(req.params.id);
+  if (!batch) return res.status(404).json({ message: 'Batch not found' });
+  res.status(204).send();
+}));
+
 router.patch('/:id', asyncHandler(async (req, res) => {
-  const batch = await Batch.findByIdAndUpdate(req.params.id, req.body, { new: true })
+  const { name, code, course, branch } = req.body;
+  const update = {};
+  if (name !== undefined) update.name = String(name).trim();
+  if (code !== undefined) update.code = String(code).trim();
+  if (course !== undefined) update.course = course || null;
+  if (branch !== undefined) update.branch = branch || null;
+  const batch = await Batch.findByIdAndUpdate(req.params.id, { $set: update }, { new: true })
     .populate('branch', 'name code')
     .populate('course', 'name code');
   if (!batch) return res.status(404).json({ message: 'Batch not found' });

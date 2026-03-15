@@ -91,12 +91,28 @@ router.get(
   })
 );
 
+// List exams the current student has already attempted
+router.get(
+  '/exams/attempts',
+  asyncHandler(async (req, res) => {
+    const attempts = await ExamAttempt.find({ student: req.user.id })
+      .select('exam')
+      .lean();
+    res.json(attempts);
+  })
+);
+
 // Submit an exam attempt (MCQ / MCQ+THEORY)
 router.post(
   '/exams/:examId/attempts',
   asyncHandler(async (req, res) => {
     const exam = await Exam.findById(req.params.examId);
     if (!exam) return res.status(404).json({ message: 'Exam not found' });
+
+    const existing = await ExamAttempt.findOne({ exam: exam._id, student: req.user.id });
+    if (existing) {
+      return res.status(400).json({ message: 'You have already attempted this exam.' });
+    }
 
     const attempt = await ExamAttempt.create({
       exam: exam._id,
@@ -124,6 +140,11 @@ router.post(
 
     const { buffer, mimetype, originalname } = req.file;
     const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'exam-answers');
+
+    const existing = await ExamAttempt.findOne({ exam: exam._id, student: req.user.id });
+    if (existing) {
+      return res.status(400).json({ message: 'You have already attempted this exam.' });
+    }
 
     const attempt = await ExamAttempt.create({
       exam: exam._id,

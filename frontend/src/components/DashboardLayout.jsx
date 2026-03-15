@@ -33,6 +33,7 @@ const SIDEBAR_ITEMS = {
     { id: 'exam-results', label: 'Exam Results' },
     { id: 'fees', label: 'Fee History' },
     { id: 'notifications', label: 'Notifications' },
+    { id: 'reports', label: 'Reports' },
   ],
   ACCOUNTANT: [
     { id: 'overview', label: 'Overview' },
@@ -72,7 +73,7 @@ export default function DashboardLayout({ children, role, activeTab, onTabChange
         <div className="sidebar-footer">
           {sidebarOpen && (
             <>
-              {['ADMIN', 'TEACHER', 'ACCOUNTANT'].includes(role) && (
+              {['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT'].includes(role) && (
                 <Link to="/reports" className="sidebar-item">
                   <span>Reports</span>
                 </Link>

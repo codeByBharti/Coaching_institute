@@ -190,12 +190,15 @@ router.post(
     const StudentProfile = require('../models/StudentProfile');
     const ops = records.map(async (r) => {
       let studentRef = r.student;
+      let profile = null;
       if (r.studentId && !studentRef) {
-        const profile = await StudentProfile.findOne({ studentId: r.studentId });
+        profile = await StudentProfile.findOne({ studentId: r.studentId });
         if (!profile) {
           throw new Error(`Invalid student ID: ${r.studentId}`);
         }
         studentRef = profile.user;
+      } else if (studentRef) {
+        profile = await StudentProfile.findOne({ user: studentRef });
       }
       return Attendance.findOneAndUpdate(
         { student: studentRef, date: attendanceDate },
@@ -203,6 +206,7 @@ router.post(
           student: studentRef,
           date: attendanceDate,
           status: r.status || 'PRESENT',
+          batch: profile?.batch || null,
           classId: classId || null,
         },
         { upsert: true, new: true, setDefaultsOnInsert: true }

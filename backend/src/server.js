@@ -9,7 +9,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -39,9 +39,16 @@ app.use('/api/public', require('./routes/public'));
 // Serve uploaded files (local fallback storage)
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
-// Error handler
+// Error handler (handles Mongoose validation, duplicate key, etc.)
 app.use((err, req, res, next) => {
   console.error(err);
+  if (err.name === 'ValidationError') {
+    const msg = Object.values(err.errors || {}).map((e) => e.message).join(', ');
+    return res.status(400).json({ message: msg || 'Validation failed' });
+  }
+  if (err.code === 11000) {
+    return res.status(409).json({ message: 'Duplicate value. This record may already exist.' });
+  }
   res.status(err.status || 500).json({
     message: err.message || 'Internal server error',
   });

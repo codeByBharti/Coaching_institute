@@ -6,7 +6,6 @@ const StudentProfile = require('../models/StudentProfile');
 const StaffProfile = require('../models/StaffProfile');
 const asyncHandler = require('../utils/asyncHandler');
 const { auth } = require('../middleware/auth');
-const { createDemoDataForUser } = require('../utils/demoData');
 const { generateStudentId } = require('../utils/studentId');
 
 const router = express.Router();
@@ -93,12 +92,6 @@ router.post(
         course: selectedCourse,
         status: 'ACTIVE',
       });
-      // Optional: seed demo academic data for student
-      try {
-        await createDemoDataForUser(user);
-      } catch (e) {
-        console.error('Failed to create demo data on register', e);
-      }
     } else if (role === 'TEACHER') {
       await StaffProfile.create({
         user: user._id,
@@ -174,13 +167,19 @@ router.get(
     const user = await User.findById(req.user.id).select('-password');
     if (!user) return res.status(404).json({ message: 'User not found' });
     let studentProfile = null;
+    let staffProfile = null;
     if (user.role === 'STUDENT') {
       studentProfile = await StudentProfile.findOne({ user: user._id })
         .populate('branch', 'name code address')
         .populate('course', 'name code')
         .populate('batch', 'name code');
     }
-    res.json({ user, studentProfile });
+    if (user.role === 'TEACHER' || user.role === 'ACCOUNTANT') {
+      staffProfile = await StaffProfile.findOne({ user: user._id })
+        .populate('branch', 'name code')
+        .populate('batch', 'name code');
+    }
+    res.json({ user, studentProfile, staffProfile });
   })
 );
 

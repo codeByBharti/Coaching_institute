@@ -16,6 +16,7 @@ export default function StudentDashboard() {
   const [fees, setFees] = useState([]);
   const [homework, setHomework] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [examAttempts, setExamAttempts] = useState([]);
   const [activeExam, setActiveExam] = useState(null);
   const [examAnswers, setExamAnswers] = useState({});
   const [answerSheetFile, setAnswerSheetFile] = useState(null);
@@ -29,7 +30,7 @@ export default function StudentDashboard() {
   });
 
   const load = async () => {
-    const [me, lc, rec, att, res, fee, hw, notif, ex] = await Promise.all([
+    const [me, lc, rec, att, res, fee, hw, notif, ex, atts] = await Promise.all([
       axios.get('/api/auth/me'),
       axios.get('/api/student/live-classes'),
       axios.get('/api/student/recorded-lectures'),
@@ -39,6 +40,7 @@ export default function StudentDashboard() {
       axios.get('/api/student/homework'),
       axios.get('/api/student/notifications'),
       axios.get('/api/student/exams'),
+      axios.get('/api/student/exams/attempts'),
     ]);
     setUserData({ user: me.data.user, studentProfile: me.data.studentProfile });
     setEditProfile({
@@ -56,6 +58,7 @@ export default function StudentDashboard() {
     setHomework(hw.data);
     setNotifications(notif.data);
     setExams(ex.data);
+    setExamAttempts(atts.data || []);
   };
 
   useEffect(() => { load(); }, []);
@@ -84,8 +87,13 @@ export default function StudentDashboard() {
 
   const handleProfileSave = async (e) => {
     e.preventDefault();
-    const res = await axios.patch('/api/student/profile', editProfile);
-    setUserData({ user: res.data.user, studentProfile: res.data.studentProfile });
+    try {
+      const res = await axios.patch('/api/student/profile', editProfile);
+      setUserData({ user: res.data.user, studentProfile: res.data.studentProfile });
+      setIsEditing(false);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update profile');
+    }
   };
 
   return (
@@ -297,20 +305,27 @@ export default function StudentDashboard() {
               <div>Total Marks</div>
               <div>Action</div>
             </div>
-            {exams.map((e) => (
-              <div key={e._id} className="table-row">
-                <div>{e.title}</div>
-                <div>{e.subject}</div>
-                <div>{e.createdBy?.name || '-'}</div>
-                <div>{new Date(e.date).toLocaleDateString()}</div>
-                <div>{e.totalMarks}</div>
-                <div>
-                  <button type="button" onClick={() => { setActiveExam(e); setExamAnswers({}); setAnswerSheetFile(null); }}>
-                    Attempt
-                  </button>
+            {exams.map((e) => {
+              const attempted = examAttempts.some((a) => String(a.exam) === String(e._id));
+              return (
+                <div key={e._id} className="table-row">
+                  <div>{e.title}</div>
+                  <div>{e.subject}</div>
+                  <div>{e.createdBy?.name || '-'}</div>
+                  <div>{new Date(e.date).toLocaleDateString()}</div>
+                  <div>{e.totalMarks}</div>
+                  <div>
+                    {attempted ? (
+                      <span className="badge badge-completed">Attempted</span>
+                    ) : (
+                      <button type="button" onClick={() => { setActiveExam(e); setExamAnswers({}); setAnswerSheetFile(null); }}>
+                        Attempt
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {activeExam && (
             <div className="section" style={{ marginTop: '1.5rem' }}>
@@ -349,6 +364,7 @@ export default function StudentDashboard() {
                         setActiveExam(null);
                         setExamAnswers({});
                         setAnswerSheetFile(null);
+                        setExamAttempts((prev) => [...prev, { exam: activeExam._id }]);
                       }}
                     >
                       Submit Exam
@@ -386,6 +402,7 @@ export default function StudentDashboard() {
                         alert('Exam submitted successfully.');
                         setActiveExam(null);
                         setExamAnswers({});
+                        setExamAttempts((prev) => [...prev, { exam: activeExam._id }]);
                       })
                       .catch((err) => {
                         alert(err.response?.data?.message || 'Failed to submit exam.');
@@ -456,6 +473,13 @@ export default function StudentDashboard() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'reports' && (
+        <div className="section">
+          <h3 className="section-title">Reports & Analytics</h3>
+          <p><a href="/reports">Open full Reports page →</a></p>
         </div>
       )}
 
