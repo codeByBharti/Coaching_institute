@@ -46,8 +46,13 @@ export default function AdminDashboard() {
 
   const load = async () => {
     try {
-      const [s, u, b, c, bat, a, st, sal] = await Promise.all([
-        axios.get('/api/admin/dashboard-summary'),
+      const sum = await axios.get('/api/admin/dashboard-summary');
+      setSummary(sum.data);
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      const [u, b, c, bat, a, st, sal] = await Promise.all([
         axios.get('/api/admin/users', { params: roleFilter ? { role: roleFilter } : {} }),
         axios.get('/api/branches'),
         axios.get('/api/courses'),
@@ -56,7 +61,6 @@ export default function AdminDashboard() {
         axios.get('/api/staff'),
         axios.get('/api/staff/salaries').catch(() => ({ data: [] })),
       ]);
-      setSummary(s.data);
       setUsers(u.data);
       setBranches(b.data);
       setCourses(c.data);
@@ -195,10 +199,24 @@ export default function AdminDashboard() {
   };
 
   const handleStatusToggle = async (id, isActive) => {
+    const nextActive = !isActive;
+    setUsers((prev) =>
+      prev.map((u) => {
+        if (u._id !== id) return u;
+        const sp = u.studentProfile
+          ? { ...u.studentProfile, status: nextActive ? 'ACTIVE' : 'INACTIVE' }
+          : u.studentProfile;
+        return { ...u, isActive: nextActive, studentProfile: sp };
+      })
+    );
     try {
-      await axios.patch(`/api/admin/users/${id}/status`, { isActive: !isActive });
-      load();
-    } catch (err) { alert(err.response?.data?.message || 'Failed to update status'); }
+      await axios.patch(`/api/admin/users/${id}/status`, { isActive: nextActive });
+      await load();
+      alert(nextActive ? 'User activated. Status saved in database.' : 'User deactivated. They cannot log in until reactivated.');
+    } catch (err) {
+      await load();
+      alert(err.response?.data?.message || 'Failed to update status');
+    }
   };
 
   const handleStudentStatus = async (userId, status) => {
@@ -652,8 +670,16 @@ export default function AdminDashboard() {
                     >
                       Edit
                     </button>
-                    <button onClick={() => handleStatusToggle(u._id, u.isActive)}>{u.isActive ? 'Deactivate' : 'Activate'}</button>
-                    <button onClick={() => handleDeleteUser(u._id)}>Delete</button>
+                    <button
+                      type="button"
+                      className="btn-toggle-status"
+                      onClick={() => handleStatusToggle(u._id, u.isActive)}
+                    >
+                      {u.isActive ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button type="button" className="btn-delete-row" onClick={() => handleDeleteUser(u._id)}>
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>
@@ -771,8 +797,16 @@ export default function AdminDashboard() {
                     >
                       Edit
                     </button>
-                    <button onClick={() => handleStatusToggle(u._id, u.isActive)}>{u.isActive ? 'Deactivate' : 'Activate'}</button>
-                    <button onClick={() => handleDeleteUser(u._id)}>Delete</button>
+                    <button
+                      type="button"
+                      className="btn-toggle-status"
+                      onClick={() => handleStatusToggle(u._id, u.isActive)}
+                    >
+                      {u.isActive ? 'Deactivate' : 'Activate'}
+                    </button>
+                    <button type="button" className="btn-delete-row" onClick={() => handleDeleteUser(u._id)}>
+                      Delete
+                    </button>
                   </div>
                 </div>
               </div>

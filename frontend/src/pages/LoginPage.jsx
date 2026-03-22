@@ -22,7 +22,11 @@ export default function LoginPage() {
       else if (user.role === 'STUDENT') navigate('/student');
       else if (user.role === 'ACCOUNTANT') navigate('/accountant');
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed');
+      const msg = err.response?.data?.message || 'Login failed';
+      setError(msg);
+      if (err.response?.status === 403) {
+        window.alert(msg);
+      }
     } finally {
       setLoading(false);
     }

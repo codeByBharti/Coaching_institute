@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
@@ -29,19 +29,7 @@ export default function StudentDashboard() {
     guardianContact: '',
   });
 
-  const load = async () => {
-    const [me, lc, rec, att, res, fee, hw, notif, ex, atts] = await Promise.all([
-      axios.get('/api/auth/me'),
-      axios.get('/api/student/live-classes'),
-      axios.get('/api/student/recorded-lectures'),
-      axios.get('/api/student/attendance'),
-      axios.get('/api/student/exam-results'),
-      axios.get('/api/student/fee-history'),
-      axios.get('/api/student/homework'),
-      axios.get('/api/student/notifications'),
-      axios.get('/api/student/exams'),
-      axios.get('/api/student/exams/attempts'),
-    ]);
+  const applyMe = (me) => {
     setUserData({ user: me.data.user, studentProfile: me.data.studentProfile });
     setEditProfile({
       name: me.data.user?.name || '',
@@ -50,18 +38,55 @@ export default function StudentDashboard() {
       guardianName: me.data.studentProfile?.guardianName || '',
       guardianContact: me.data.studentProfile?.guardianContact || '',
     });
-    setLiveClasses(lc.data);
-    setLectures(rec.data);
-    setAttendance(att.data);
-    setResults(res.data);
-    setFees(fee.data);
-    setHomework(hw.data);
-    setNotifications(notif.data);
-    setExams(ex.data);
-    setExamAttempts(atts.data || []);
+  };
+
+  /** Profile + auth first (fast first paint), then rest in parallel for quicker dashboard load */
+  const load = async () => {
+    try {
+      const me = await axios.get('/api/auth/me');
+      applyMe(me);
+    } catch (e) {
+      console.error(e);
+      return;
+    }
+    try {
+      const [lc, rec, att, res, fee, hw, notif, ex, atts] = await Promise.all([
+        axios.get('/api/student/live-classes'),
+        axios.get('/api/student/recorded-lectures'),
+        axios.get('/api/student/attendance'),
+        axios.get('/api/student/exam-results'),
+        axios.get('/api/student/fee-history'),
+        axios.get('/api/student/homework'),
+        axios.get('/api/student/notifications'),
+        axios.get('/api/student/exams'),
+        axios.get('/api/student/exams/attempts'),
+      ]);
+      setLiveClasses(lc.data);
+      setLectures(rec.data);
+      setAttendance(att.data);
+      setResults(res.data);
+      setFees(fee.data);
+      setHomework(hw.data);
+      setNotifications(notif.data);
+      setExams(ex.data);
+      setExamAttempts(atts.data || []);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => { load(); }, []);
+
+  const profileTabSeen = useRef(false);
+  /** Refresh profile when returning to Profile tab (admin may have changed status) */
+  useEffect(() => {
+    if (activeTab !== 'profile') return;
+    if (!profileTabSeen.current) {
+      profileTabSeen.current = true;
+      return;
+    }
+    axios.get('/api/auth/me').then(applyMe).catch(() => {});
+  }, [activeTab]);
 
   const attendancePercent = useMemo(() => {
     if (!attendance.length) return 0;
@@ -106,6 +131,12 @@ export default function StudentDashboard() {
             <div className="profile-info">
               <h4>{userData.user?.name}</h4>
               <p><strong>Student ID:</strong> {userData.studentProfile?.studentId || '-'}</p>
+              <p>
+                <strong>Account status:</strong>{' '}
+                <span className={`badge badge-${(userData.studentProfile?.status || 'ACTIVE').toLowerCase()}`}>
+                  {userData.studentProfile?.status || 'ACTIVE'}
+                </span>
+              </p>
               <p><strong>Email:</strong> {userData.user?.email}</p>
               <p><strong>Phone:</strong> {userData.studentProfile?.phone || '-'}</p>
               <p><strong>Course:</strong> {userData.studentProfile?.course?.name || '-'}</p>
@@ -469,7 +500,7 @@ export default function StudentDashboard() {
                 <div>₹{f.amount?.toLocaleString()}</div>
                 <div><span className={`badge badge-${f.status?.toLowerCase()}`}>{f.status}</span></div>
                 <div>{new Date(f.dueDate).toLocaleDateString()}</div>
-                <div>{f.receiptNo || '-'}</div>
+                <div>{f.status === 'PAID' && f.receiptNo ? f.receiptNo : '—'}</div>
               </div>
             ))}
           </div>

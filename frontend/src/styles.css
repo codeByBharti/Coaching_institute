@@ -557,6 +557,32 @@ button:disabled {
   box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35) !important;
 }
 
+/* Activate / Deactivate — same style in student & staff tables */
+.action-buttons .btn-toggle-status {
+  background: linear-gradient(90deg, var(--accent) 0%, var(--accent2) 100%) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.action-buttons .btn-toggle-status:hover {
+  opacity: 0.92;
+  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25) !important;
+}
+
+.action-buttons .btn-delete-row {
+  background: rgba(239, 68, 68, 0.22) !important;
+  color: #fecaca !important;
+  border: 1px solid rgba(239, 68, 68, 0.45) !important;
+}
+
+.action-buttons .btn-delete-row:hover {
+  background: rgba(239, 68, 68, 0.32) !important;
+}
+
+.data-table.fee-table .table-row {
+  grid-template-columns: 1.5fr 1fr 0.85fr 1.05fr 1fr 2.1fr;
+}
+
 /* Profile */
 .profile-card {
   display: flex;
@@ -721,6 +747,19 @@ button:disabled {
 .muted {
   color: var(--muted);
   font-size: 0.9rem;
+}
+
+.page-loading {
+  min-height: 100vh;
+}
+
+.page-loading-inner {
+  padding: 1rem 1.5rem;
+  border-radius: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 1rem;
 }
 
 .center {

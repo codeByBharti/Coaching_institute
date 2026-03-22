@@ -53,27 +53,55 @@ router.post('/fees', asyncHandler(async (req, res) => {
 }));
 
 router.patch('/fees/:id', asyncHandler(async (req, res) => {
-  const { status, paymentDate, method, reference } = req.body;
-  const update = {};
-  if (status !== undefined) update.status = status;
-  if (paymentDate !== undefined) update.paymentDate = paymentDate ? new Date(paymentDate) : null;
-  if (method !== undefined) update.method = method;
-  if (reference !== undefined) update.reference = reference;
+  const { status, paymentDate, method, reference, amount, dueDate, branch } = req.body;
   const existing = await FeePayment.findById(req.params.id);
   if (!existing) return res.status(404).json({ message: 'Fee record not found' });
 
-  // If marking as PAID and no receipt yet, generate one
-  if (update.status === 'PAID' && !existing.receiptNo) {
-    update.receiptNo = generateReceiptNo();
-    if (!update.paymentDate) {
-      update.paymentDate = new Date();
-    }
+  const $set = {};
+  if (status !== undefined) $set.status = status;
+  if (method !== undefined) $set.method = method;
+  if (reference !== undefined) $set.reference = reference;
+  if (amount !== undefined) {
+    const n = Number(amount);
+    if (Number.isNaN(n) || n <= 0) return res.status(400).json({ message: 'Valid amount is required' });
+    $set.amount = n;
+  }
+  if (dueDate !== undefined) $set.dueDate = new Date(dueDate);
+  if (branch !== undefined) $set.branch = branch || null;
+  if (paymentDate !== undefined) {
+    $set.paymentDate = paymentDate ? new Date(paymentDate) : null;
   }
 
-  const fee = await FeePayment.findByIdAndUpdate(req.params.id, update, { new: true })
-    .populate('student', 'name email');
+  const mergedStatus = status !== undefined ? status : existing.status;
+
+  if (mergedStatus === 'PAID') {
+    if (!existing.receiptNo) {
+      $set.receiptNo = generateReceiptNo();
+    }
+    if ($set.paymentDate === undefined && !existing.paymentDate && paymentDate === undefined) {
+      $set.paymentDate = new Date();
+    }
+  } else if (paymentDate === undefined) {
+    $set.paymentDate = null;
+  }
+
+  const mongoUpdate = { $set };
+  if (mergedStatus !== 'PAID') {
+    mongoUpdate.$unset = { receiptNo: '' };
+    delete $set.receiptNo;
+  }
+
+  const fee = await FeePayment.findByIdAndUpdate(req.params.id, mongoUpdate, { new: true })
+    .populate('student', 'name email')
+    .populate('branch', 'name code');
   if (!fee) return res.status(404).json({ message: 'Fee record not found' });
   res.json(fee);
+}));
+
+router.delete('/fees/:id', asyncHandler(async (req, res) => {
+  const deleted = await FeePayment.findByIdAndDelete(req.params.id);
+  if (!deleted) return res.status(404).json({ message: 'Fee record not found' });
+  res.json({ message: 'Fee record deleted' });
 }));
 
 router.get('/fees', asyncHandler(async (req, res) => {

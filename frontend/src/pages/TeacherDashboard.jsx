@@ -22,18 +22,27 @@ export default function TeacherDashboard() {
   const [attendanceForm, setAttendanceForm] = useState({ date: '', studentId: '', status: 'PRESENT' });
 
   const load = async () => {
-    const [me, lc, ex, hw, notifs] = await Promise.all([
-      axios.get('/api/auth/me'),
-      axios.get('/api/teacher/live-classes'),
-      axios.get('/api/teacher/exams'),
-      axios.get('/api/homework'),
-      axios.get('/api/notifications').catch(() => ({ data: [] })),
-    ]);
-    setLiveClasses(lc.data);
-    setExams(ex.data);
-    setHomework(hw.data);
-    setNotifications(notifs.data || []);
-    setTeacherBatch(me.data.staffProfile?.batch || null);
+    try {
+      const me = await axios.get('/api/auth/me');
+      setTeacherBatch(me.data.staffProfile?.batch || null);
+    } catch (e) {
+      console.error(e);
+      return;
+    }
+    try {
+      const [lc, ex, hw, notifs] = await Promise.all([
+        axios.get('/api/teacher/live-classes'),
+        axios.get('/api/teacher/exams'),
+        axios.get('/api/homework'),
+        axios.get('/api/notifications').catch(() => ({ data: [] })),
+      ]);
+      setLiveClasses(lc.data);
+      setExams(ex.data);
+      setHomework(hw.data);
+      setNotifications(notifs.data || []);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => { load(); }, []);

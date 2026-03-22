@@ -124,6 +124,14 @@ router.patch('/users/:id/status', asyncHandler(async (req, res) => {
   const { isActive } = req.body;
   const user = await User.findByIdAndUpdate(req.params.id, { isActive: !!isActive }, { new: true }).select('-password');
   if (!user) return res.status(404).json({ message: 'User not found' });
+  // Keep admin table + student dashboard in sync: status column uses StudentProfile.status
+  if (user.role === 'STUDENT') {
+    await StudentProfile.findOneAndUpdate(
+      { user: user._id },
+      { $set: { status: isActive ? 'ACTIVE' : 'INACTIVE' } },
+      { new: true }
+    );
+  }
   res.json(user);
 }));
 

@@ -4,7 +4,7 @@ const feePaymentSchema = new mongoose.Schema(
   {
     student: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
-    receiptNo: { type: String, unique: true },
+    receiptNo: { type: String, unique: true, sparse: true },
     amount: { type: Number, required: true },
     dueDate: { type: Date, required: true },
     status: { type: String, enum: ['PENDING', 'PAID', 'OVERDUE', 'PARTIAL'], default: 'PENDING' },

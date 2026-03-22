@@ -13,18 +13,30 @@ export default function AccountantDashboard() {
   const [form, setForm] = useState({ studentId: '', amount: '', dueDate: '', status: 'PENDING', method: 'CASH' });
   const [notifications, setNotifications] = useState([]);
   const [receiptForm, setReceiptForm] = useState({ studentId: '', amount: '', paymentDate: '' });
+  const [editFee, setEditFee] = useState(null);
+  const [branches, setBranches] = useState([]);
 
   const load = async () => {
-    const [f, fs, a, notifs] = await Promise.all([
-      axios.get('/api/accountant/fees'),
-      axios.get('/api/reports/fee-status'),
-      axios.get('/api/reports/analytics').catch(() => ({ data: null })),
-      axios.get('/api/notifications').catch(() => ({ data: [] })),
-    ]);
-    setFees(f.data);
-    setFeeStatus(fs.data);
-    setAnalytics(a?.data || null);
-    setNotifications(notifs.data || []);
+    try {
+      const f = await axios.get('/api/accountant/fees');
+      setFees(f.data);
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      const [fs, a, notifs, br] = await Promise.all([
+        axios.get('/api/reports/fee-status'),
+        axios.get('/api/reports/analytics').catch(() => ({ data: null })),
+        axios.get('/api/notifications').catch(() => ({ data: [] })),
+        axios.get('/api/public/branches').catch(() => ({ data: [] })),
+      ]);
+      setFeeStatus(fs.data);
+      setAnalytics(a?.data || null);
+      setNotifications(notifs.data || []);
+      setBranches(br.data || []);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   useEffect(() => { load(); }, []);
@@ -48,6 +60,59 @@ export default function AccountantDashboard() {
       alert('Fee marked as paid. Receipt generated.');
     } catch (err) {
       alert(err.response?.data?.message || 'Failed');
+    }
+  };
+
+  const handleDeleteFee = async (feeId) => {
+    if (!window.confirm('Delete this fee record? It will be removed from all fee views and the database.')) return;
+    try {
+      await axios.delete(`/api/accountant/fees/${feeId}`);
+      setFees((prev) => prev.filter((f) => f._id !== feeId));
+      await load();
+      alert('Fee record deleted.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to delete fee');
+    }
+  };
+
+  const receiptDisplay = (f) => (f.status === 'PAID' && f.receiptNo ? f.receiptNo : '—');
+
+  const openEditFee = (f) => {
+    const due = f.dueDate ? new Date(f.dueDate).toISOString().slice(0, 10) : '';
+    const paid = f.paymentDate ? new Date(f.paymentDate).toISOString().slice(0, 10) : '';
+    setEditFee({
+      _id: f._id,
+      amount: f.amount,
+      dueDate: due,
+      status: f.status,
+      method: f.method || 'CASH',
+      reference: f.reference || '',
+      paymentDate: paid,
+      branch: f.branch?._id || f.branch || '',
+    });
+  };
+
+  const saveEditFee = async () => {
+    if (!editFee) return;
+    try {
+      const payload = {
+        amount: Number(editFee.amount),
+        dueDate: editFee.dueDate,
+        status: editFee.status,
+        method: editFee.method,
+        reference: editFee.reference || undefined,
+        branch: editFee.branch || null,
+      };
+      if (editFee.status === 'PAID' && editFee.paymentDate) {
+        payload.paymentDate = new Date(editFee.paymentDate).toISOString();
+      }
+      const res = await axios.patch(`/api/accountant/fees/${editFee._id}`, payload);
+      setFees((prev) => prev.map((x) => (x._id === res.data._id ? res.data : x)));
+      await load();
+      setEditFee(null);
+      alert('Fee record updated and saved.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update fee');
     }
   };
 
@@ -156,19 +221,104 @@ export default function AccountantDashboard() {
             <button type="submit">Save</button>
           </form>
           <h4>Fee Records</h4>
-          <div className="data-table admin-table">
-            <div className="table-row table-header"><div>Student</div><div>Amount</div><div>Status</div><div>Due Date</div><div>Receipt</div><div>Actions</div></div>
+          {editFee && (
+            <div className="chart-card" style={{ marginBottom: '1rem' }}>
+              <h4>Edit fee record</h4>
+              <div className="form-section">
+                <label>
+                  Fee amount (₹)
+                  <input
+                    type="number"
+                    aria-label="Fee amount in rupees"
+                    value={editFee.amount}
+                    onChange={(e) => setEditFee((p) => ({ ...p, amount: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Due date
+                  <input
+                    type="date"
+                    aria-label="Fee due date"
+                    value={editFee.dueDate}
+                    onChange={(e) => setEditFee((p) => ({ ...p, dueDate: e.target.value }))}
+                  />
+                </label>
+                <label>
+                  Status
+                  <select value={editFee.status} onChange={(e) => setEditFee((p) => ({ ...p, status: e.target.value }))}>
+                    <option value="PENDING">Pending</option>
+                    <option value="PAID">Paid</option>
+                    <option value="OVERDUE">Overdue</option>
+                    <option value="PARTIAL">Partial</option>
+                  </select>
+                </label>
+                <label>
+                  Method
+                  <select value={editFee.method} onChange={(e) => setEditFee((p) => ({ ...p, method: e.target.value }))}>
+                    <option value="CASH">Cash</option>
+                    <option value="CARD">Card</option>
+                    <option value="UPI">UPI</option>
+                    <option value="BANK_TRANSFER">Bank Transfer</option>
+                    <option value="CHEQUE">Cheque</option>
+                    <option value="ONLINE">Online</option>
+                  </select>
+                </label>
+                <label>
+                  Reference / note
+                  <input
+                    value={editFee.reference}
+                    onChange={(e) => setEditFee((p) => ({ ...p, reference: e.target.value }))}
+                    placeholder="Optional reference"
+                  />
+                </label>
+                {editFee.status === 'PAID' && (
+                  <label>
+                    Payment date
+                    <input
+                      type="date"
+                      value={editFee.paymentDate || ''}
+                      onChange={(e) => setEditFee((p) => ({ ...p, paymentDate: e.target.value }))}
+                    />
+                  </label>
+                )}
+                <label>
+                  Branch (optional)
+                  <select value={editFee.branch || ''} onChange={(e) => setEditFee((p) => ({ ...p, branch: e.target.value }))}>
+                    <option value="">None</option>
+                    {branches.map((b) => (
+                      <option key={b._id} value={b._id}>{b.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <div className="action-buttons">
+                  <button type="button" onClick={saveEditFee}>Save changes</button>
+                  <button type="button" className="btn-action" onClick={() => setEditFee(null)}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="data-table fee-table">
+            <div className="table-row table-header">
+              <div>Student</div>
+              <div>Amount</div>
+              <div>Status</div>
+              <div>Due Date</div>
+              <div>Receipt</div>
+              <div>Actions</div>
+            </div>
             {fees.map((f) => (
               <div key={f._id} className="table-row">
                 <div>{f.student?.name || f.student?._id}</div>
                 <div>₹{f.amount?.toLocaleString()}</div>
                 <div><span className={`badge badge-${f.status?.toLowerCase()}`}>{f.status}</span></div>
                 <div>{new Date(f.dueDate).toLocaleDateString()}</div>
-                <div>{f.receiptNo || '-'}</div>
+                <div>{receiptDisplay(f)}</div>
                 <div className="action-buttons">
-                  {f.status === 'PENDING' && (
-                    <button type="button" className="btn-action" onClick={() => handleMarkPaid(f._id)}>Mark Paid</button>
+                  <button type="button" className="btn-edit" onClick={() => openEditFee(f)}>Edit</button>
+                  {f.status !== 'PAID' && (
+                    <button type="button" className="btn-toggle-status" onClick={() => handleMarkPaid(f._id)}>Mark Paid</button>
                   )}
+                  <button type="button" className="btn-delete-row" onClick={() => handleDeleteFee(f._id)}>Delete</button>
                 </div>
               </div>
             ))}
@@ -207,7 +357,7 @@ export default function AccountantDashboard() {
           <p className="muted">Receipts are generated as PAID fee records. Receipt number format: RCPYYMMXXXX</p>
           <div className="data-table admin-table">
             <div className="table-row table-header"><div>Receipt No</div><div>Student</div><div>Amount</div><div>Date</div></div>
-            {fees.filter((f) => f.receiptNo).map((f) => (
+            {fees.filter((f) => f.status === 'PAID' && f.receiptNo).map((f) => (
               <div key={f._id} className="table-row">
                 <div>{f.receiptNo}</div>
                 <div>{f.student?.name}</div>

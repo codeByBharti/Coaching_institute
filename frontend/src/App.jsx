@@ -1,13 +1,22 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import AdminDashboard from './pages/AdminDashboard';
-import TeacherDashboard from './pages/TeacherDashboard';
-import StudentDashboard from './pages/StudentDashboard';
-import AccountantDashboard from './pages/AccountantDashboard';
-import ReportsPage from './pages/ReportsPage';
+
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const TeacherDashboard = lazy(() => import('./pages/TeacherDashboard'));
+const StudentDashboard = lazy(() => import('./pages/StudentDashboard'));
+const AccountantDashboard = lazy(() => import('./pages/AccountantDashboard'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
+
+function PageLoading() {
+  return (
+    <div className="center page-loading">
+      <div className="page-loading-inner">Loading dashboard…</div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ roles, children }) {
   const { user, loading } = useAuth();
@@ -37,59 +46,61 @@ function RoleRedirect() {
 
 function AppShell() {
   return (
-    <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route
-        path="/"
-        element={
-          <ProtectedRoute>
-            <RoleRedirect />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/admin"
-        element={
-          <ProtectedRoute roles={['ADMIN']}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/teacher"
-        element={
-          <ProtectedRoute roles={['TEACHER']}>
-            <TeacherDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/student"
-        element={
-          <ProtectedRoute roles={['STUDENT']}>
-            <StudentDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/accountant"
-        element={
-          <ProtectedRoute roles={['ACCOUNTANT']}>
-            <AccountantDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reports"
-        element={
-          <ProtectedRoute roles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT']}>
-            <ReportsPage />
-          </ProtectedRoute>
-        }
-      />
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={<PageLoading />}>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <RoleRedirect />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute roles={['ADMIN']}>
+              <AdminDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/teacher"
+          element={
+            <ProtectedRoute roles={['TEACHER']}>
+              <TeacherDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student"
+          element={
+            <ProtectedRoute roles={['STUDENT']}>
+              <StudentDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/accountant"
+          element={
+            <ProtectedRoute roles={['ACCOUNTANT']}>
+              <AccountantDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute roles={['ADMIN', 'TEACHER', 'ACCOUNTANT', 'STUDENT']}>
+              <ReportsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
