@@ -13,7 +13,12 @@ const { User } = require('../models/User');
 const ExamAttempt = require('../models/ExamAttempt');
 const multer = require('multer');
 const { uploadBuffer } = require('../services/storage');
-const { mapHomework, mapExam, mapExamAttempt } = require('../utils/publicUrl');
+const {
+  mapHomework,
+  mapExam,
+  mapExamAttempt,
+  mapRecordedLecture,
+} = require('../utils/publicUrl');
 
 const router = express.Router();
 const upload = multer();

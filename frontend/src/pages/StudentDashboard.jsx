@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
@@ -41,8 +41,53 @@ export default function StudentDashboard() {
     });
   };
 
-  /** Profile + auth first (fast first paint), then rest in parallel for quicker dashboard load */
-  const load = async () => {
+  /** Fetch one endpoint; failures don't wipe other sections (isolated errors). */
+  const fetchStudentData = async (promise, fallback = []) => {
+    try {
+      const res = await promise;
+      return res.data ?? fallback;
+    } catch (e) {
+      console.error('Student dashboard load:', e.response?.data || e.message || e);
+      return fallback;
+    }
+  };
+
+  /** Load lists (live classes, homework, exams, etc.) — safe to call after login. */
+  const loadLists = useCallback(async () => {
+    const [
+      lc,
+      rec,
+      att,
+      res,
+      fee,
+      hw,
+      notif,
+      ex,
+      atts,
+    ] = await Promise.all([
+      fetchStudentData(axios.get('/api/student/live-classes')),
+      fetchStudentData(axios.get('/api/student/recorded-lectures')),
+      fetchStudentData(axios.get('/api/student/attendance')),
+      fetchStudentData(axios.get('/api/student/exam-results')),
+      fetchStudentData(axios.get('/api/student/fee-history')),
+      fetchStudentData(axios.get('/api/student/homework')),
+      fetchStudentData(axios.get('/api/student/notifications')),
+      fetchStudentData(axios.get('/api/student/exams')),
+      fetchStudentData(axios.get('/api/student/exams/attempts')),
+    ]);
+    setLiveClasses(lc);
+    setLectures(rec);
+    setAttendance(att);
+    setResults(res);
+    setFees(fee);
+    setHomework(hw);
+    setNotifications(notif);
+    setExams(ex);
+    setExamAttempts(Array.isArray(atts) ? atts : []);
+  }, []);
+
+  /** Profile + auth first, then all lists. */
+  const load = useCallback(async () => {
     try {
       const me = await axios.get('/api/auth/me');
       applyMe(me);
@@ -50,33 +95,23 @@ export default function StudentDashboard() {
       console.error(e);
       return;
     }
-    try {
-      const [lc, rec, att, res, fee, hw, notif, ex, atts] = await Promise.all([
-        axios.get('/api/student/live-classes'),
-        axios.get('/api/student/recorded-lectures'),
-        axios.get('/api/student/attendance'),
-        axios.get('/api/student/exam-results'),
-        axios.get('/api/student/fee-history'),
-        axios.get('/api/student/homework'),
-        axios.get('/api/student/notifications'),
-        axios.get('/api/student/exams'),
-        axios.get('/api/student/exams/attempts'),
-      ]);
-      setLiveClasses(lc.data);
-      setLectures(rec.data);
-      setAttendance(att.data);
-      setResults(res.data);
-      setFees(fee.data);
-      setHomework(hw.data);
-      setNotifications(notif.data);
-      setExams(ex.data);
-      setExamAttempts(atts.data || []);
-    } catch (e) {
-      console.error(e);
-    }
-  };
+    await loadLists();
+  }, [loadLists]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  /** When student returns to the tab, refresh lists so new exams / classes / homework appear. */
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState === 'visible') {
+        loadLists();
+      }
+    };
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [loadLists]);
 
   const profileTabSeen = useRef(false);
   /** Refresh profile when returning to Profile tab (admin may have changed status) */
@@ -406,6 +441,7 @@ export default function StudentDashboard() {
                         setExamAnswers({});
                         setAnswerSheetFile(null);
                         setExamAttempts((prev) => [...prev, { exam: activeExam._id }]);
+                        loadLists();
                       }}
                     >
                       Submit Exam
@@ -444,6 +480,7 @@ export default function StudentDashboard() {
                         setActiveExam(null);
                         setExamAnswers({});
                         setExamAttempts((prev) => [...prev, { exam: activeExam._id }]);
+                        loadLists();
                       })
                       .catch((err) => {
                         alert(err.response?.data?.message || 'Failed to submit exam.');
