@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { resolveAssetUrl, isHttpUrl } from '../utils/resolveAssetUrl';
 
 const CHART_COLORS = ['#22c55e', '#ef4444', '#f59e0b'];
 
@@ -272,7 +273,7 @@ export default function StudentDashboard() {
               <div key={l._id} className="content-card">
                 <div className="card-title">{l.title} · {l.subject}</div>
                 <div className="card-meta">{l.teacher?.name} · {l.durationMinutes} min</div>
-                <a href={l.s3Url} target="_blank" rel="noreferrer" className="btn-link">Watch</a>
+                <a href={resolveAssetUrl(l.s3Url)} target="_blank" rel="noopener noreferrer" className="btn-link">Watch</a>
               </div>
             ))}
           </div>
@@ -296,7 +297,16 @@ export default function StudentDashboard() {
                     </div>
                   )}
                 </div>
-                {h.s3Url && <a href={h.s3Url} target="_blank" rel="noreferrer" className="btn-link">Open Material</a>}
+                {(h.s3Url || h.url) && (
+                  <a
+                    href={resolveAssetUrl(h.url || h.s3Url)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-link"
+                  >
+                    {h.materialType === 'file' || !isHttpUrl(h.s3Url || h.url) ? 'Open file' : 'Open link'}
+                  </a>
+                )}
               </div>
             ))}
           </div>
@@ -367,7 +377,7 @@ export default function StudentDashboard() {
                 <div style={{ width: '100%' }}>
                   <div className="muted" style={{ marginBottom: '0.5rem' }}>
                     Uploaded question paper:{' '}
-                    <a href={activeExam.questionPaperUrl} target="_blank" rel="noreferrer">
+                    <a href={resolveAssetUrl(activeExam.questionPaperUrl)} target="_blank" rel="noopener noreferrer">
                       Open
                     </a>
                   </div>

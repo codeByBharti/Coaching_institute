@@ -8,7 +8,9 @@ const homeworkSchema = new mongoose.Schema(
     teacher: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     batch: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
     s3Key: { type: String },
+    /** Canonical URL for link or uploaded file (same as API responses' `url`) */
     s3Url: { type: String },
+    materialType: { type: String, enum: ['link', 'file'], default: 'file' },
     dueDate: { type: Date },
     isPublic: { type: Boolean, default: false },
   },

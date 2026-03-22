@@ -1,8 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
+const LoginPage = lazy(() => import('./pages/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 const TeacherDashboard = lazy(() => import('./pages/TeacherDashboard'));
@@ -13,7 +13,7 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 function PageLoading() {
   return (
     <div className="center page-loading">
-      <div className="page-loading-inner">Loading dashboard…</div>
+      <div className="page-loading-inner">Loading…</div>
     </div>
   );
 }

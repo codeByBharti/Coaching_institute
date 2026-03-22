@@ -4,6 +4,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const { auth, requireRole } = require('../middleware/auth');
 const Homework = require('../models/Homework');
 const { uploadBuffer, deleteKey } = require('../services/storage');
+const { mapHomework } = require('../utils/publicUrl');
 
 const router = express.Router();
 const upload = multer();
@@ -16,12 +17,25 @@ router.get('/', auth(), asyncHandler(async (req, res) => {
   if (req.user.role === 'TEACHER') filter.teacher = req.user.id;
   filter.$or = [{ isPublic: true }, { batch: { $exists: true } }];
   const items = await Homework.find(filter).populate('teacher', 'name').sort({ createdAt: -1 });
-  res.json(items);
+  res.json(items.map((d) => mapHomework(d)));
 }));
 
 router.post('/', auth(), requireRole('TEACHER'), asyncHandler(async (req, res) => {
-  const homework = await Homework.create({ ...req.body, teacher: req.user.id });
-  res.status(201).json(homework);
+  const { s3Url } = req.body;
+  const isHttpLink = s3Url && /^https?:\/\//i.test(String(s3Url).trim());
+  const materialType =
+    req.body.materialType === 'link' || req.body.materialType === 'file'
+      ? req.body.materialType
+      : isHttpLink
+        ? 'link'
+        : 'link';
+
+  const homework = await Homework.create({
+    ...req.body,
+    teacher: req.user.id,
+    materialType,
+  });
+  res.status(201).json(mapHomework(homework));
 }));
 
 router.post('/upload', auth(), requireRole('TEACHER'), upload.single('file'), asyncHandler(async (req, res) => {
@@ -30,7 +44,7 @@ router.post('/upload', auth(), requireRole('TEACHER'), upload.single('file'), as
   }
   const { title, subject, description, batch } = req.body;
   const { buffer, mimetype, originalname } = req.file;
-  const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'homework');
+  const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'homework', req);
 
   const homework = await Homework.create({
     title,
@@ -40,10 +54,11 @@ router.post('/upload', auth(), requireRole('TEACHER'), upload.single('file'), as
     teacher: req.user.id,
     s3Key: uploaded.key,
     s3Url: uploaded.url,
+    materialType: 'file',
     isPublic: true,
   });
 
-  res.status(201).json(homework);
+  res.status(201).json(mapHomework(homework));
 }));
 
 // Teacher can delete their uploaded material

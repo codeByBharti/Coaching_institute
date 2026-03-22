@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const { uploadBuffer: uploadToS3, deleteObject: deleteFromS3 } = require('./s3');
+const { toAbsoluteUrl } = require('../utils/publicUrl');
 
 function hasRealAwsConfig() {
   const bucket = process.env.AWS_S3_BUCKET;
@@ -33,7 +34,14 @@ function uploadsRoot() {
   return path.join(__dirname, '..', '..', 'uploads');
 }
 
-async function uploadBuffer(buffer, mimeType, originalName, prefix) {
+/**
+ * @param {Buffer} buffer
+ * @param {string} mimeType
+ * @param {string} originalName
+ * @param {string} prefix
+ * @param {import('express').Request} [req] - pass from route handlers so production URLs use the API host
+ */
+async function uploadBuffer(buffer, mimeType, originalName, prefix, req) {
   if (hasRealAwsConfig()) {
     try {
       return await uploadToS3(buffer, mimeType, originalName, prefix);
@@ -47,7 +55,8 @@ async function uploadBuffer(buffer, mimeType, originalName, prefix) {
   const fullPath = path.join(uploadsRoot(), key);
   ensureDir(path.dirname(fullPath));
   fs.writeFileSync(fullPath, buffer);
-  const url = `/uploads/${key.replace(/\\/g, '/')}`;
+  const relative = `/uploads/${key.replace(/\\/g, '/')}`;
+  const url = toAbsoluteUrl(relative, req);
   return { key, url };
 }
 

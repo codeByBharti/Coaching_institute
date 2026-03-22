@@ -76,7 +76,8 @@ Set at least:
 
 - `MONGODB_URI` – your MongoDB connection string
 - `JWT_SECRET` – a strong secret string
-- `AWS_REGION`, `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` – for S3 uploads
+- **`PUBLIC_API_URL`** – full origin of this API (e.g. `https://your-app.onrender.com`). **Required in production** for study material / homework / exam uploads served from `/uploads` (otherwise the browser requests files from the frontend domain and they 404). On Render you can rely on `RENDER_EXTERNAL_URL` or set `PUBLIC_API_URL` manually.
+- `AWS_REGION`, `AWS_S3_BUCKET`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` – for S3 uploads (optional; without S3, files are stored under `backend/uploads` and served at `/uploads/...`)
 
 3. Run MongoDB (local or Atlas), then start the API:
 

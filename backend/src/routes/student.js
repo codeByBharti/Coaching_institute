@@ -13,6 +13,7 @@ const { User } = require('../models/User');
 const ExamAttempt = require('../models/ExamAttempt');
 const multer = require('multer');
 const { uploadBuffer } = require('../services/storage');
+const { mapHomework, mapExam, mapExamAttempt } = require('../utils/publicUrl');
 
 const router = express.Router();
 const upload = multer();
@@ -33,7 +34,7 @@ router.get(
   '/recorded-lectures',
   asyncHandler(async (req, res) => {
     const lectures = await RecordedLecture.find({}).populate('teacher', 'name').sort({ createdAt: -1 });
-    res.json(lectures);
+    res.json(lectures.map((d) => mapRecordedLecture(d)));
   })
 );
 
@@ -48,7 +49,7 @@ router.get(
     const items = await Homework.find({ $or: or })
       .populate('teacher', 'name')
       .sort({ createdAt: -1 });
-    res.json(items);
+    res.json(items.map((d) => mapHomework(d)));
   })
 );
 
@@ -87,7 +88,7 @@ router.get(
     const exams = await Exam.find({})
       .populate('createdBy', 'name')
       .sort({ date: 1 });
-    res.json(exams);
+    res.json(exams.map((e) => mapExam(e)));
   })
 );
 
@@ -139,7 +140,7 @@ router.post(
     }
 
     const { buffer, mimetype, originalname } = req.file;
-    const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'exam-answers');
+    const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'exam-answers', req);
 
     const existing = await ExamAttempt.findOne({ exam: exam._id, student: req.user.id });
     if (existing) {
@@ -153,7 +154,7 @@ router.post(
       answerSheetKey: uploaded.key,
       answerSheetUrl: uploaded.url,
     });
-    res.status(201).json(attempt);
+    res.status(201).json(mapExamAttempt(attempt));
   })
 );
 

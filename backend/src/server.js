@@ -9,6 +9,9 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const app = express();
 
+// So req.protocol / x-forwarded-proto are correct behind Render, Railway, etc.
+app.set('trust proxy', 1);
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(morgan('dev'));

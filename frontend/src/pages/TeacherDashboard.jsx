@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
+import { resolveAssetUrl, isHttpUrl } from '../utils/resolveAssetUrl';
 
 export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -101,7 +102,9 @@ export default function TeacherDashboard() {
 
   const handleCreateHomework = async (e) => {
     e.preventDefault();
-    await axios.post('/api/homework', { ...hwForm, isPublic: true });
+    const url = hwForm.s3Url?.trim();
+    const materialType = url && isHttpUrl(url) ? 'link' : 'link';
+    await axios.post('/api/homework', { ...hwForm, s3Url: url || undefined, isPublic: true, materialType });
     setHwForm({ title: '', subject: '', description: '', s3Url: '' });
     load();
   };
@@ -233,7 +236,11 @@ export default function TeacherDashboard() {
             <input placeholder="Title" value={hwForm.title} onChange={(e) => setHwForm((p) => ({ ...p, title: e.target.value }))} required />
             <input placeholder="Subject" value={hwForm.subject} onChange={(e) => setHwForm((p) => ({ ...p, subject: e.target.value }))} required />
             <input placeholder="Description / Problems" value={hwForm.description} onChange={(e) => setHwForm((p) => ({ ...p, description: e.target.value }))} />
-            <input placeholder="File URL (optional)" value={hwForm.s3Url} onChange={(e) => setHwForm((p) => ({ ...p, s3Url: e.target.value }))} />
+            <input
+              placeholder="External link (Google Drive, docs, etc.)"
+              value={hwForm.s3Url}
+              onChange={(e) => setHwForm((p) => ({ ...p, s3Url: e.target.value }))}
+            />
             <button type="submit">Add</button>
           </form>
           <form
@@ -261,7 +268,16 @@ export default function TeacherDashboard() {
                 <div className="card-title">{h.title} · {h.subject}</div>
                 <div className="card-meta">{h.description || '-'}</div>
                 <div className="action-buttons">
-                  {h.s3Url && <a href={h.s3Url} target="_blank" rel="noreferrer" className="btn-link">Open</a>}
+                  {(h.s3Url || h.url) && (
+                    <a
+                      href={resolveAssetUrl(h.url || h.s3Url)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-link"
+                    >
+                      {h.materialType === 'file' || !isHttpUrl(h.s3Url || h.url) ? 'Open file' : 'Open link'}
+                    </a>
+                  )}
                   <button
                     type="button"
                     className="btn-action"
@@ -308,7 +324,7 @@ export default function TeacherDashboard() {
                 <div>{a.submittedAt ? new Date(a.submittedAt).toLocaleString() : '-'}</div>
                 <div>
                   {a.answerSheetUrl ? (
-                    <a href={a.answerSheetUrl} target="_blank" rel="noreferrer" className="btn-link">
+                    <a href={resolveAssetUrl(a.answerSheetUrl)} target="_blank" rel="noopener noreferrer" className="btn-link">
                       Open
                     </a>
                   ) : (

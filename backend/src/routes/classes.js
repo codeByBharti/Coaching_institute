@@ -4,7 +4,8 @@ const asyncHandler = require('../utils/asyncHandler');
 const { auth, requireRole } = require('../middleware/auth');
 const LiveClass = require('../models/LiveClass');
 const RecordedLecture = require('../models/RecordedLecture');
-const { uploadBuffer } = require('../services/s3');
+const { uploadBuffer } = require('../services/storage');
+const { mapRecordedLecture } = require('../utils/publicUrl');
 
 const router = express.Router();
 const upload = multer();
@@ -27,7 +28,7 @@ router.get(
     const lectures = await RecordedLecture.find({}).populate('teacher', 'name').sort({
       createdAt: -1,
     });
-    res.json(lectures);
+    res.json(lectures.map((d) => mapRecordedLecture(d)));
   })
 );
 
@@ -47,7 +48,7 @@ router.post(
       isPublic,
       teacher: req.user.id,
     });
-    res.status(201).json(lecture);
+    res.status(201).json(mapRecordedLecture(lecture));
   })
 );
 
@@ -64,7 +65,7 @@ router.post(
     }
 
     const { buffer, mimetype, originalname } = req.file;
-    const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'lectures');
+    const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'lectures', req);
 
     const lecture = await RecordedLecture.create({
       title,
@@ -76,7 +77,7 @@ router.post(
       teacher: req.user.id,
     });
 
-    res.status(201).json(lecture);
+    res.status(201).json(mapRecordedLecture(lecture));
   })
 );
 

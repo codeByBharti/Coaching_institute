@@ -6,6 +6,7 @@ const LiveClass = require('../models/LiveClass');
 const { Exam, ExamResult } = require('../models/Exam');
 const Attendance = require('../models/Attendance');
 const { uploadBuffer } = require('../services/storage');
+const { mapExam, mapExamAttempt } = require('../utils/publicUrl');
 const ExamAttempt = require('../models/ExamAttempt');
 
 const router = express.Router();
@@ -98,7 +99,7 @@ router.post(
     }
     const { title, subject, totalMarks, date, durationMinutes } = req.body;
     const { buffer, mimetype, originalname } = req.file;
-    const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'exam-papers');
+    const uploaded = await uploadBuffer(buffer, mimetype, originalname, 'exam-papers', req);
 
     const exam = await Exam.create({
       title,
@@ -111,7 +112,7 @@ router.post(
       createdBy: req.user.id,
     });
 
-    res.status(201).json(exam);
+    res.status(201).json(mapExam(exam));
   })
 );
 
@@ -119,7 +120,7 @@ router.get(
   '/exams',
   asyncHandler(async (req, res) => {
     const exams = await Exam.find({ createdBy: req.user.id }).sort({ date: -1 });
-    res.json(exams);
+    res.json(exams.map((e) => mapExam(e)));
   })
 );
 
@@ -149,7 +150,7 @@ router.get(
       .populate('student', 'name email')
       .sort({ createdAt: -1 });
 
-    res.json(attempts);
+    res.json(attempts.map((a) => mapExamAttempt(a)));
   })
 );
 
