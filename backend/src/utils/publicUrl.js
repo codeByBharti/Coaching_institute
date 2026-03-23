@@ -43,9 +43,15 @@ function toAbsoluteUrl(pathOrUrl, req) {
 
 function mapHomework(doc) {
   const o = doc && typeof doc.toObject === 'function' ? doc.toObject() : { ...doc };
-  if (o.s3Url) {
-    o.s3Url = toAbsoluteUrl(o.s3Url);
-    o.url = o.s3Url;
+  // Normalize into the new schema: { type: 'link'|'file', url: absolute URL }
+  if (!o.type) {
+    if (o.materialType) o.type = o.materialType;
+    else o.type = 'file';
+  }
+
+  const rawUrl = o.url || o.s3Url;
+  if (rawUrl) {
+    o.url = toAbsoluteUrl(rawUrl);
   }
   return o;
 }

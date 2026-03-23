@@ -12,7 +12,13 @@ const app = express();
 // So req.protocol / x-forwarded-proto are correct behind Render, Railway, etc.
 app.set('trust proxy', 1);
 
-app.use(cors({ origin: true, credentials: true }));
+const frontendOrigin = process.env.FRONTEND_ORIGIN;
+app.use(
+  cors({
+    origin: frontendOrigin ? frontendOrigin.split(',').map((s) => s.trim()) : true,
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -21,7 +27,7 @@ connectDb();
 
 // Routes
 app.get('/', (req, res) => {
-  res.json({ status: 'ok', message: 'Coaching Institute API' });
+  res.status(200).send('API is running');
 });
 
 app.use('/api/auth', require('./routes/auth'));
@@ -57,8 +63,45 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+const PORT = Number(process.env.PORT || 5000);
+
+function start(port, attempt = 0) {
+  const server = app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+  });
+
+  // Prevent unhandled crashes (EADDRINUSE stacks) and handle port conflicts cleanly
+  server.on('error', (err) => {
+    if (err && err.code === 'EADDRINUSE') {
+      const isRender = Boolean(process.env.RENDER_EXTERNAL_URL || process.env.RENDER);
+
+      if (isRender) {
+        console.error(
+          `[server] Port ${port} is already in use. On Render this should never happen. ` +
+            `Stop extra processes and redeploy.`
+        );
+        process.exit(1);
+      }
+
+      const next = port + 1;
+      if (attempt < 5) {
+        console.warn(`[server] Port ${port} is in use. Retrying on ${next}...`);
+        return start(next, attempt + 1);
+      }
+
+      console.error(
+        `[server] Port ${port} is in use and retries failed. Stop the other backend process and run again.`
+      );
+      process.exit(1);
+    }
+
+    // Other errors: keep default behavior but avoid silent failures
+    console.error('[server] Failed to start:', err);
+    process.exit(1);
+  });
+
+  return server;
+}
+
+start(PORT);
 

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { resolveAssetUrl, isHttpUrl } from '../utils/resolveAssetUrl';
+import { resolveAssetUrl } from '../utils/resolveAssetUrl';
 
 const CHART_COLORS = ['#22c55e', '#ef4444', '#f59e0b'];
 
@@ -112,6 +112,15 @@ export default function StudentDashboard() {
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, [loadLists]);
+
+  // Keep Homework tab fresh so new uploads/links appear without requiring manual refresh.
+  useEffect(() => {
+    if (activeTab !== 'homework') return undefined;
+    const id = setInterval(() => {
+      loadLists();
+    }, 8000);
+    return () => clearInterval(id);
+  }, [activeTab, loadLists]);
 
   const profileTabSeen = useRef(false);
   /** Refresh profile when returning to Profile tab (admin may have changed status) */
@@ -332,14 +341,14 @@ export default function StudentDashboard() {
                     </div>
                   )}
                 </div>
-                {(h.s3Url || h.url) && (
+                {(h.url || h.s3Url) && (
                   <a
                     href={resolveAssetUrl(h.url || h.s3Url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn-link"
                   >
-                    {h.materialType === 'file' || !isHttpUrl(h.s3Url || h.url) ? 'Open file' : 'Open link'}
+                    {(h.type || h.materialType) === 'file' ? 'Open file' : 'Open link'}
                   </a>
                 )}
               </div>

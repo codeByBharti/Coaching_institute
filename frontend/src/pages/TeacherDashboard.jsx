@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import DashboardLayout from '../components/DashboardLayout';
-import { resolveAssetUrl, isHttpUrl } from '../utils/resolveAssetUrl';
+import { resolveAssetUrl } from '../utils/resolveAssetUrl';
 
 export default function TeacherDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
@@ -103,10 +103,21 @@ export default function TeacherDashboard() {
   const handleCreateHomework = async (e) => {
     e.preventDefault();
     const url = hwForm.s3Url?.trim();
-    const materialType = url && isHttpUrl(url) ? 'link' : 'link';
-    await axios.post('/api/homework', { ...hwForm, s3Url: url || undefined, isPublic: true, materialType });
-    setHwForm({ title: '', subject: '', description: '', s3Url: '' });
-    load();
+    try {
+      await axios.post('/api/homework', {
+        title: hwForm.title,
+        subject: hwForm.subject,
+        description: hwForm.description,
+        url: url || undefined,
+        type: 'link',
+        isPublic: true,
+      });
+      setHwForm({ title: '', subject: '', description: '', s3Url: '' });
+      load();
+      alert('Study material added.');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to add study material');
+    }
   };
 
   const handleMarksChange = (e) => {
@@ -247,12 +258,17 @@ export default function TeacherDashboard() {
             className="form-section"
             onSubmit={async (e) => {
               e.preventDefault();
-              const fd = new FormData(e.target);
-              await axios.post('/api/homework/upload', fd, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-              });
-              e.target.reset();
-              load();
+              try {
+                const fd = new FormData(e.target);
+                await axios.post('/api/homework/upload', fd, {
+                  headers: { 'Content-Type': 'multipart/form-data' },
+                });
+                e.target.reset();
+                load();
+                alert('File uploaded successfully.');
+              } catch (err2) {
+                alert(err2.response?.data?.message || 'File upload failed');
+              }
             }}
           >
             <input name="title" placeholder="Title" required />
@@ -268,14 +284,14 @@ export default function TeacherDashboard() {
                 <div className="card-title">{h.title} · {h.subject}</div>
                 <div className="card-meta">{h.description || '-'}</div>
                 <div className="action-buttons">
-                  {(h.s3Url || h.url) && (
+                  {(h.url || h.s3Url) && (
                     <a
                       href={resolveAssetUrl(h.url || h.s3Url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn-link"
                     >
-                      {h.materialType === 'file' || !isHttpUrl(h.s3Url || h.url) ? 'Open file' : 'Open link'}
+                      {(h.type || h.materialType) === 'file' ? 'Open file' : 'Open link'}
                     </a>
                   )}
                   <button
