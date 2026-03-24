@@ -95,16 +95,33 @@ async function fetchUpstreamFile(sourceUrl, req) {
       status: upstream.status,
       source: downloadSource,
     });
-    return { error: { status: 502, message: 'Failed to fetch file from source' } };
+    return {
+      error: { status: 502, message: 'Failed to fetch file from source' },
+      parsed,
+      source: downloadSource,
+    };
   }
 
   return { upstream, parsed };
 }
 
+function cloudinaryRedirectFallback(sourceUrl) {
+  const list = privateDownloadUrlCandidatesFromSecureUrl(sourceUrl);
+  if (list && list.length > 0) return list[0];
+  return privateDownloadUrlFromSecureUrl(sourceUrl) || sourceUrl;
+}
+
 router.get('/download', async (req, res) => {
   const sourceUrl = String(req.query.url || '').trim();
   const result = await fetchUpstreamFile(sourceUrl, req);
-  if (result.error) return res.status(result.error.status).json({ message: result.error.message });
+  if (result.error) {
+    const host = String(result.parsed?.hostname || '').toLowerCase();
+    if (host.includes('res.cloudinary.com')) {
+      const redirectUrl = cloudinaryRedirectFallback(result.source || sourceUrl);
+      return res.redirect(302, redirectUrl);
+    }
+    return res.status(result.error.status).json({ message: result.error.message });
+  }
   const { upstream, parsed } = result;
 
   const requestedName = String(req.query.name || '').trim();
@@ -130,7 +147,14 @@ router.get('/download', async (req, res) => {
 router.get('/open', async (req, res) => {
   const sourceUrl = String(req.query.url || '').trim();
   const result = await fetchUpstreamFile(sourceUrl, req);
-  if (result.error) return res.status(result.error.status).json({ message: result.error.message });
+  if (result.error) {
+    const host = String(result.parsed?.hostname || '').toLowerCase();
+    if (host.includes('res.cloudinary.com')) {
+      const redirectUrl = cloudinaryRedirectFallback(result.source || sourceUrl);
+      return res.redirect(302, redirectUrl);
+    }
+    return res.status(result.error.status).json({ message: result.error.message });
+  }
   const { upstream, parsed } = result;
 
   const requestedName = String(req.query.name || '').trim();
