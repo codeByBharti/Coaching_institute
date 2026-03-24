@@ -134,20 +134,25 @@ function privateDownloadUrlCandidatesFromSecureUrl(secureUrl) {
   const extension = m[2];
 
   const resourceTypes = [detectedResourceType, 'raw', 'image', 'video'];
+  // Cloudinary accounts may use authenticated delivery; try both.
+  const deliveryTypes = ['upload', 'authenticated'];
   const seen = new Set();
   const urls = [];
   for (const rt of resourceTypes) {
-    if (!rt || seen.has(rt)) continue;
-    seen.add(rt);
-    try {
-      const u = cloudinary.utils.private_download_url(publicId, extension, {
-        resource_type: rt,
-        type: 'upload',
-        secure: true,
-      });
-      if (u) urls.push(u);
-    } catch {
-      // ignore single variant failure, keep trying others
+    for (const type of deliveryTypes) {
+      const key = `${rt}:${type}`;
+      if (!rt || seen.has(key)) continue;
+      seen.add(key);
+      try {
+        const u = cloudinary.utils.private_download_url(publicId, extension, {
+          resource_type: rt,
+          type,
+          secure: true,
+        });
+        if (u) urls.push(u);
+      } catch {
+        // ignore single variant failure, keep trying others
+      }
     }
   }
   return urls;
