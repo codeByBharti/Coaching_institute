@@ -1,6 +1,7 @@
 const path = require('path');
 const express = require('express');
 const { privateDownloadUrlFromSecureUrl } = require('../services/cloudinary');
+const { getPublicBase } = require('../utils/publicUrl');
 
 const router = express.Router();
 
@@ -29,10 +30,37 @@ function isBlockedHost(hostname) {
   return false;
 }
 
-async function fetchUpstreamFile(sourceUrl) {
+function normalizeSourceUrl(sourceUrl, req) {
   let parsed;
   try {
     parsed = new URL(sourceUrl);
+  } catch {
+    return sourceUrl;
+  }
+
+  const host = String(parsed.hostname || '').toLowerCase();
+  const isLocalHost =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1';
+
+  // Production fix: old DB rows may still store localhost uploads URL.
+  // Rewrite to current public backend host so live links work.
+  if (isLocalHost && parsed.pathname.startsWith('/uploads/')) {
+    const base = getPublicBase(req);
+    if (base) {
+      return `${base}${parsed.pathname}${parsed.search || ''}`;
+    }
+  }
+
+  return sourceUrl;
+}
+
+async function fetchUpstreamFile(sourceUrl, req) {
+  const normalizedSourceUrl = normalizeSourceUrl(sourceUrl, req);
+  let parsed;
+  try {
+    parsed = new URL(normalizedSourceUrl);
   } catch {
     return { error: { status: 400, message: 'Invalid file URL' } };
   }
@@ -66,7 +94,7 @@ async function fetchUpstreamFile(sourceUrl) {
 
 router.get('/download', async (req, res) => {
   const sourceUrl = String(req.query.url || '').trim();
-  const result = await fetchUpstreamFile(sourceUrl);
+  const result = await fetchUpstreamFile(sourceUrl, req);
   if (result.error) return res.status(result.error.status).json({ message: result.error.message });
   const { upstream, parsed } = result;
 
@@ -92,7 +120,7 @@ router.get('/download', async (req, res) => {
 
 router.get('/open', async (req, res) => {
   const sourceUrl = String(req.query.url || '').trim();
-  const result = await fetchUpstreamFile(sourceUrl);
+  const result = await fetchUpstreamFile(sourceUrl, req);
   if (result.error) return res.status(result.error.status).json({ message: result.error.message });
   const { upstream, parsed } = result;
 
