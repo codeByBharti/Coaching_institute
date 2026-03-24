@@ -73,7 +73,7 @@ async function fetchUpstreamFile(sourceUrl, req) {
   }
 
   let downloadSource = parsed.toString();
-  let upstream = await fetch(downloadSource, { method: 'GET' });
+  let upstream = await fetch(downloadSource, { method: 'GET', redirect: 'follow' });
 
   // Cloudinary assets may be private; retry once using a signed private download URL.
   if (!upstream.ok && String(parsed.hostname).toLowerCase().includes('res.cloudinary.com')) {
@@ -85,7 +85,7 @@ async function fetchUpstreamFile(sourceUrl, req) {
     }
     for (const candidate of candidates) {
       downloadSource = candidate;
-      upstream = await fetch(downloadSource, { method: 'GET' });
+      upstream = await fetch(downloadSource, { method: 'GET', redirect: 'follow' });
       if (upstream.ok) break;
     }
   }
@@ -96,7 +96,10 @@ async function fetchUpstreamFile(sourceUrl, req) {
       source: downloadSource,
     });
     return {
-      error: { status: 502, message: 'Failed to fetch file from source' },
+      error: {
+        status: 502,
+        message: `Failed to fetch file from source (upstream ${upstream.status})`,
+      },
       parsed,
       source: downloadSource,
     };
@@ -105,10 +108,9 @@ async function fetchUpstreamFile(sourceUrl, req) {
   return { upstream, parsed };
 }
 
-function cloudinaryRedirectFallback(sourceUrl) {
-  const list = privateDownloadUrlCandidatesFromSecureUrl(sourceUrl);
-  if (list && list.length > 0) return list[0];
-  return privateDownloadUrlFromSecureUrl(sourceUrl) || sourceUrl;
+function shouldRedirectToCloudinary() {
+  // Redirects cause CORS issues in browsers. Only allow in local dev.
+  return process.env.NODE_ENV !== 'production';
 }
 
 router.get('/download', async (req, res) => {
@@ -116,8 +118,9 @@ router.get('/download', async (req, res) => {
   const result = await fetchUpstreamFile(sourceUrl, req);
   if (result.error) {
     const host = String(result.parsed?.hostname || '').toLowerCase();
-    if (host.includes('res.cloudinary.com')) {
-      const redirectUrl = cloudinaryRedirectFallback(result.source || sourceUrl);
+    if (host.includes('res.cloudinary.com') && shouldRedirectToCloudinary()) {
+      const list = privateDownloadUrlCandidatesFromSecureUrl(result.source || sourceUrl);
+      const redirectUrl = list[0] || privateDownloadUrlFromSecureUrl(result.source || sourceUrl) || (result.source || sourceUrl);
       return res.redirect(302, redirectUrl);
     }
     return res.status(result.error.status).json({ message: result.error.message });
@@ -131,13 +134,19 @@ router.get('/download', async (req, res) => {
   try {
     const upstreamType = upstream.headers.get('content-type') || '';
     const contentType = upstreamType.split(';')[0] || inferMimeFromName(fileName);
-    const fileBuffer = Buffer.from(await upstream.arrayBuffer());
-
     res.setHeader('Content-Type', contentType);
     res.setHeader(
       'Content-Disposition',
       `attachment; filename*=UTF-8''${encodeURIComponent(fileName)}`
     );
+    // Stream to avoid memory issues on Render/large files.
+    if (upstream.body && typeof upstream.body.getReader === 'function') {
+      const { Readable } = require('stream');
+      const nodeStream = Readable.fromWeb(upstream.body);
+      nodeStream.on('error', () => res.end());
+      return nodeStream.pipe(res.status(200));
+    }
+    const fileBuffer = Buffer.from(await upstream.arrayBuffer());
     return res.status(200).send(fileBuffer);
   } catch (e) {
     return res.status(500).json({ message: 'Download proxy failed' });
@@ -149,8 +158,9 @@ router.get('/open', async (req, res) => {
   const result = await fetchUpstreamFile(sourceUrl, req);
   if (result.error) {
     const host = String(result.parsed?.hostname || '').toLowerCase();
-    if (host.includes('res.cloudinary.com')) {
-      const redirectUrl = cloudinaryRedirectFallback(result.source || sourceUrl);
+    if (host.includes('res.cloudinary.com') && shouldRedirectToCloudinary()) {
+      const list = privateDownloadUrlCandidatesFromSecureUrl(result.source || sourceUrl);
+      const redirectUrl = list[0] || privateDownloadUrlFromSecureUrl(result.source || sourceUrl) || (result.source || sourceUrl);
       return res.redirect(302, redirectUrl);
     }
     return res.status(result.error.status).json({ message: result.error.message });
@@ -164,13 +174,18 @@ router.get('/open', async (req, res) => {
   try {
     const upstreamType = upstream.headers.get('content-type') || '';
     const contentType = upstreamType.split(';')[0] || inferMimeFromName(fileName);
-    const fileBuffer = Buffer.from(await upstream.arrayBuffer());
-
     res.setHeader('Content-Type', contentType);
     res.setHeader(
       'Content-Disposition',
       `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`
     );
+    if (upstream.body && typeof upstream.body.getReader === 'function') {
+      const { Readable } = require('stream');
+      const nodeStream = Readable.fromWeb(upstream.body);
+      nodeStream.on('error', () => res.end());
+      return nodeStream.pipe(res.status(200));
+    }
+    const fileBuffer = Buffer.from(await upstream.arrayBuffer());
     return res.status(200).send(fileBuffer);
   } catch (e) {
     return res.status(500).json({ message: 'Open proxy failed' });

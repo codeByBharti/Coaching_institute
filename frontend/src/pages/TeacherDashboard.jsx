@@ -76,8 +76,8 @@ export default function TeacherDashboard() {
     try {
       const a = document.createElement('a');
       a.href = downloadUrl;
-      // Let the server force attachment; keep app open.
-      a.target = '_blank';
+      // Production: do not open a new tab for downloads.
+      a.target = import.meta.env.PROD ? '_self' : '_blank';
       a.rel = 'noopener noreferrer';
       document.body.appendChild(a);
       a.click();
