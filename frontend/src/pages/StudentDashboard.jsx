@@ -62,7 +62,14 @@ export default function StudentDashboard() {
     const src = resolveAssetUrl(rawUrl);
     const name = fileName || getDownloadFileName(src);
     const q = new URLSearchParams({ url: src, name });
-    const apiBase = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/$/, '');
+    let apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+    if (!apiBase) {
+      try {
+        apiBase = new URL(src).origin;
+      } catch {
+        apiBase = import.meta.env.DEV ? 'http://localhost:5000' : '';
+      }
+    }
     if (apiBase) return `${apiBase}/api/files/download?${q.toString()}`;
     return `/api/files/download?${q.toString()}`;
   };
@@ -71,7 +78,14 @@ export default function StudentDashboard() {
     const src = resolveAssetUrl(rawUrl);
     const name = fileName || getDownloadFileName(src);
     const q = new URLSearchParams({ url: src, name });
-    const apiBase = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/$/, '');
+    let apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+    if (!apiBase) {
+      try {
+        apiBase = new URL(src).origin;
+      } catch {
+        apiBase = import.meta.env.DEV ? 'http://localhost:5000' : '';
+      }
+    }
     if (apiBase) return `${apiBase}/api/files/open?${q.toString()}`;
     return `/api/files/open?${q.toString()}`;
   };
