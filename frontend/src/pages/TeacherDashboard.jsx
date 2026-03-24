@@ -58,14 +58,7 @@ export default function TeacherDashboard() {
     const src = resolveAssetUrl(rawUrl);
     const name = fileName || getDownloadFileName(src);
     const q = new URLSearchParams({ url: src, name });
-    let apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-    if (!apiBase) {
-      try {
-        apiBase = new URL(src).origin;
-      } catch {
-        apiBase = import.meta.env.DEV ? 'http://localhost:5000' : '';
-      }
-    }
+    const apiBase = (import.meta.env.VITE_API_URL || axios.defaults.baseURL || (import.meta.env.DEV ? '' : '')).replace(/\/$/, '');
     if (apiBase) return `${apiBase}/api/files/download?${q.toString()}`;
     return `/api/files/download?${q.toString()}`;
   };
@@ -74,33 +67,21 @@ export default function TeacherDashboard() {
     const src = resolveAssetUrl(rawUrl);
     const name = fileName || getDownloadFileName(src);
     const q = new URLSearchParams({ url: src, name });
-    let apiBase = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-    if (!apiBase) {
-      try {
-        apiBase = new URL(src).origin;
-      } catch {
-        apiBase = import.meta.env.DEV ? 'http://localhost:5000' : '';
-      }
-    }
+    const apiBase = (import.meta.env.VITE_API_URL || axios.defaults.baseURL || (import.meta.env.DEV ? '' : '')).replace(/\/$/, '');
     if (apiBase) return `${apiBase}/api/files/open?${q.toString()}`;
     return `/api/files/open?${q.toString()}`;
   };
 
-  const triggerDownload = async (downloadUrl, fileName) => {
+  const triggerDownload = (downloadUrl, fileName) => {
     try {
-      const resp = await fetch(downloadUrl, { method: 'GET', credentials: 'include' });
-      if (!resp.ok) {
-        throw new Error(`Download failed (${resp.status})`);
-      }
-      const blob = await resp.blob();
-      const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = objectUrl;
-      a.download = fileName || 'download';
+      a.href = downloadUrl;
+      // Let the server force attachment; keep app open.
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(objectUrl);
     } catch (e) {
       alert('Download failed. Please try again.');
     }
@@ -354,7 +335,10 @@ export default function TeacherDashboard() {
                             h.url || h.s3Url,
                             h.originalFileName
                           );
-                          triggerDownload(downloadUrl, h.originalFileName || getDownloadFileName(h.url || h.s3Url));
+                          triggerDownload(
+                            downloadUrl,
+                            h.originalFileName || getDownloadFileName(h.url || h.s3Url)
+                          );
                         }}
                       >
                         Open file
