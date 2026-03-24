@@ -160,3 +160,51 @@ function privateDownloadUrlCandidatesFromSecureUrl(secureUrl) {
 
 module.exports.privateDownloadUrlCandidatesFromSecureUrl = privateDownloadUrlCandidatesFromSecureUrl;
 
+/**
+ * Production helper: resolve Cloudinary delivery + resource_type using Admin API
+ * then generate a matching signed download URL.
+ *
+ * This fixes cases where direct URLs return 401/404 on live because the asset
+ * is delivered as `authenticated` or classified under a different resource_type.
+ *
+ * @param {string} secureUrl
+ * @returns {Promise<string|undefined>}
+ */
+async function bestSignedDownloadUrlFromSecureUrl(secureUrl) {
+  if (!secureUrl || !/^https?:\/\//i.test(String(secureUrl))) return undefined;
+  try {
+    ensureCloudinary();
+  } catch {
+    return undefined;
+  }
+
+  const m = String(secureUrl).match(/\/upload\/(?:v\d+\/)?(.+?)\.([a-z0-9]+)$/i);
+  if (!m?.[1]) return undefined;
+  const publicId = m[1];
+  const extension = m[2];
+
+  // Try combinations to discover the actual stored asset.
+  const resourceTypes = ['image', 'raw', 'video'];
+  const deliveryTypes = ['upload', 'authenticated'];
+  for (const rt of resourceTypes) {
+    for (const type of deliveryTypes) {
+      try {
+        // If this succeeds, we found the correct classification.
+        // eslint-disable-next-line no-await-in-loop
+        await cloudinary.api.resource(publicId, { resource_type: rt, type });
+        return cloudinary.utils.private_download_url(publicId, extension, {
+          resource_type: rt,
+          type,
+          secure: true,
+        });
+      } catch {
+        // keep trying
+      }
+    }
+  }
+
+  return undefined;
+}
+
+module.exports.bestSignedDownloadUrlFromSecureUrl = bestSignedDownloadUrlFromSecureUrl;
+

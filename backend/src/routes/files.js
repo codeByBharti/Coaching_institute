@@ -3,6 +3,7 @@ const express = require('express');
 const {
   privateDownloadUrlFromSecureUrl,
   privateDownloadUrlCandidatesFromSecureUrl,
+  bestSignedDownloadUrlFromSecureUrl,
 } = require('../services/cloudinary');
 const { getPublicBase } = require('../utils/publicUrl');
 
@@ -77,6 +78,18 @@ async function fetchUpstreamFile(sourceUrl, req) {
 
   // Cloudinary assets may be private; retry once using a signed private download URL.
   if (!upstream.ok && String(parsed.hostname).toLowerCase().includes('res.cloudinary.com')) {
+    // Strongest production fix: ask Cloudinary Admin API what the asset really is,
+    // then generate the matching signed URL.
+    try {
+      const best = await bestSignedDownloadUrlFromSecureUrl(downloadSource);
+      if (best) {
+        downloadSource = best;
+        upstream = await fetch(downloadSource, { method: 'GET', redirect: 'follow' });
+      }
+    } catch {
+      // ignore and fall back to candidates below
+    }
+
     const candidates = privateDownloadUrlCandidatesFromSecureUrl(downloadSource);
     // Backward-compatible single candidate fallback if list builder returns nothing
     if (candidates.length === 0) {
