@@ -35,11 +35,20 @@ function isBlockedHost(hostname) {
 }
 
 function normalizeSourceUrl(sourceUrl, req) {
+  const raw = String(sourceUrl || '').trim();
+  if (!raw) return raw;
+
+  // Accept relative file paths from legacy rows (/uploads/...) and convert to absolute.
+  if (raw.startsWith('/')) {
+    const base = getPublicBase(req);
+    if (base) return `${base}${raw}`;
+  }
+
   let parsed;
   try {
-    parsed = new URL(sourceUrl);
+    parsed = new URL(raw);
   } catch {
-    return sourceUrl;
+    return raw;
   }
 
   const host = String(parsed.hostname || '').toLowerCase();
@@ -57,7 +66,7 @@ function normalizeSourceUrl(sourceUrl, req) {
     }
   }
 
-  return sourceUrl;
+  return raw;
 }
 
 async function fetchUpstreamFile(sourceUrl, req) {
@@ -170,12 +179,8 @@ router.get('/open', async (req, res) => {
   const sourceUrl = String(req.query.url || '').trim();
   const result = await fetchUpstreamFile(sourceUrl, req);
   if (result.error) {
-    const host = String(result.parsed?.hostname || '').toLowerCase();
-    if (host.includes('res.cloudinary.com') && shouldRedirectToCloudinary()) {
-      const list = privateDownloadUrlCandidatesFromSecureUrl(result.source || sourceUrl);
-      const redirectUrl = list[0] || privateDownloadUrlFromSecureUrl(result.source || sourceUrl) || (result.source || sourceUrl);
-      return res.redirect(302, redirectUrl);
-    }
+    // For "open in browser", never redirect to Cloudinary fallback URLs
+    // because they can force attachment download in some environments.
     return res.status(result.error.status).json({ message: result.error.message });
   }
   const { upstream, parsed } = result;

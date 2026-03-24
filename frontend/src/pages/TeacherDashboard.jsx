@@ -406,10 +406,12 @@ export default function TeacherDashboard() {
                         type="button"
                         className="btn-link"
                         onClick={() => {
-                          const openUrl = buildOpenProxyUrl(
-                            a.answerSheetUrl,
-                            a.answerSheetOriginalFileName
-                          );
+                          const openUrl = import.meta.env.PROD
+                            ? resolveAssetUrl(a.answerSheetUrl)
+                            : buildOpenProxyUrl(
+                                a.answerSheetUrl,
+                                a.answerSheetOriginalFileName
+                              );
                           window.open(openUrl, '_blank', 'noopener,noreferrer');
                         }}
                       >
@@ -419,10 +421,12 @@ export default function TeacherDashboard() {
                         type="button"
                         className="btn-link"
                         onClick={() => {
-                          const downloadUrl = buildDownloadProxyUrl(
-                            a.answerSheetUrl,
-                            a.answerSheetOriginalFileName
-                          );
+                          const downloadUrl = import.meta.env.PROD
+                            ? resolveAssetUrl(a.answerSheetUrl)
+                            : buildDownloadProxyUrl(
+                                a.answerSheetUrl,
+                                a.answerSheetOriginalFileName
+                              );
                           triggerDownload(
                             downloadUrl,
                             a.answerSheetOriginalFileName || getDownloadFileName(a.answerSheetUrl)

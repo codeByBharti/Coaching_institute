@@ -491,10 +491,12 @@ export default function StudentDashboard() {
                         type="button"
                         className="btn-link"
                         onClick={() => {
-                          const openUrl = buildOpenProxyUrl(
-                            activeExam.questionPaperUrl,
-                            activeExam.questionPaperOriginalFileName
-                          );
+                          const openUrl = import.meta.env.PROD
+                            ? resolveAssetUrl(activeExam.questionPaperUrl)
+                            : buildOpenProxyUrl(
+                                activeExam.questionPaperUrl,
+                                activeExam.questionPaperOriginalFileName
+                              );
                           window.open(openUrl, '_blank', 'noopener,noreferrer');
                         }}
                       >
@@ -504,10 +506,12 @@ export default function StudentDashboard() {
                         type="button"
                         className="btn-link"
                         onClick={() => {
-                          const downloadUrl = buildDownloadProxyUrl(
-                            activeExam.questionPaperUrl,
-                            activeExam.questionPaperOriginalFileName
-                          );
+                          const downloadUrl = import.meta.env.PROD
+                            ? resolveAssetUrl(activeExam.questionPaperUrl)
+                            : buildDownloadProxyUrl(
+                                activeExam.questionPaperUrl,
+                                activeExam.questionPaperOriginalFileName
+                              );
                           triggerDownload(
                             downloadUrl,
                             activeExam.questionPaperOriginalFileName ||
