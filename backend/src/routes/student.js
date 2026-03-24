@@ -158,6 +158,8 @@ router.post(
       submittedAt: new Date(),
       answerSheetKey: uploaded.key,
       answerSheetUrl: uploaded.url,
+      answerSheetOriginalFileName: originalname,
+      answerSheetContentType: mimetype,
     });
     res.status(201).json(mapExamAttempt(attempt));
   })

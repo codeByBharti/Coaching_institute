@@ -5,7 +5,9 @@ let configured = false;
 
 function ensureCloudinary() {
   if (configured) return;
-  const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+  const CLOUDINARY_CLOUD_NAME = String(process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+  const CLOUDINARY_API_KEY = String(process.env.CLOUDINARY_API_KEY || '').trim();
+  const CLOUDINARY_API_SECRET = String(process.env.CLOUDINARY_API_SECRET || '').trim();
   if (!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_API_KEY || !CLOUDINARY_API_SECRET) {
     throw new Error('Cloudinary env vars are missing');
   }
@@ -24,8 +26,8 @@ function uploadBufferToCloudinary(buffer, mimetype, originalName, folder = 'home
     const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder,
-        // Study material is typically PDFs/DOCs; raw ensures correct handling for non-images.
-        resource_type: 'raw',
+        // Let Cloudinary auto-detect the resource type to improve inline viewing.
+        resource_type: 'auto',
         access_mode: 'public',
         // Cloudinary will generate a unique public_id automatically.
         use_filename: true,
@@ -33,6 +35,7 @@ function uploadBufferToCloudinary(buffer, mimetype, originalName, folder = 'home
       },
       (err, result) => {
         if (err) return reject(err);
+
         resolve({
           secure_url: result?.secure_url,
           public_id: result?.public_id,
@@ -62,4 +65,49 @@ async function destroyCloudinaryAsset(publicId) {
 }
 
 module.exports = { uploadBufferToCloudinary, destroyCloudinaryAsset };
+
+/**
+ * Best-effort conversion: if an item has an existing Cloudinary URL but the asset is not publicly accessible,
+ * convert it into a signed URL that works reliably.
+ *
+ * @param {string} secureUrl
+ * @returns {string|undefined}
+ */
+function privateDownloadUrlFromSecureUrl(secureUrl) {
+  if (!secureUrl || !/^https?:\/\//i.test(String(secureUrl))) return undefined;
+  try {
+    ensureCloudinary();
+  } catch {
+    return undefined;
+  }
+
+  // Examples:
+  // https://res.cloudinary.com/<cloud>/image/upload/v123456/homework/file_x1y2z3.pdf
+  // public_id would be: homework/file_x1y2z3
+  const uploadTypeMatch = String(secureUrl).match(/\/(image|video|raw)\/upload\//i);
+  const resourceType = uploadTypeMatch?.[1]?.toLowerCase() || 'raw';
+
+  const m = String(secureUrl).match(/\/upload\/(?:v\d+\/)?(.+?)\.([a-z0-9]+)$/i);
+  if (!m?.[1]) return undefined;
+  const publicId = m[1];
+  const extension = m[2];
+
+  try {
+    // Helpful debug: if signatures fail, we need to know what we signed.
+    console.log('[cloudinary] signing private download:', {
+      resourceType,
+      publicId,
+      extension,
+    });
+    return cloudinary.utils.private_download_url(publicId, extension, {
+      resource_type: resourceType,
+      type: 'upload',
+      secure: true,
+    });
+  } catch {
+    return undefined;
+  }
+}
+
+module.exports.privateDownloadUrlFromSecureUrl = privateDownloadUrlFromSecureUrl;
 

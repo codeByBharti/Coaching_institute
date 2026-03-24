@@ -17,7 +17,11 @@ router.get('/', auth(), asyncHandler(async (req, res) => {
   if (subject) filter.subject = subject;
   if (req.user.role === 'TEACHER') filter.teacher = req.user.id;
   filter.$or = [{ isPublic: true }, { batch: { $exists: true } }];
-  const items = await Homework.find(filter).populate('teacher', 'name').sort({ createdAt: -1 });
+  const items = await Homework.find(filter)
+    .populate('teacher', 'name')
+    .sort({ createdAt: -1 });
+
+  // Map to a consistent shape ({ type, url } etc.) for frontend.
   res.json(items.map((d) => mapHomework(d)));
 }));
 
@@ -71,7 +75,6 @@ router.post('/upload', auth(), requireRole('TEACHER'), upload.single('file'), as
     const t = setTimeout(() => controller.abort(), 5000);
     const resp = await fetch(uploaded?.secure_url, {
       method: 'GET',
-      headers: { Range: 'bytes=0-0' },
       signal: controller.signal,
     });
     clearTimeout(t);
@@ -91,6 +94,8 @@ router.post('/upload', auth(), requireRole('TEACHER'), upload.single('file'), as
     type: 'file',
     url: uploaded.secure_url,
     cloudinaryPublicId: uploaded.public_id,
+    originalFileName: originalname,
+    contentType: mimetype,
     // Legacy compatibility
     s3Url: uploaded.secure_url,
     materialType: 'file',

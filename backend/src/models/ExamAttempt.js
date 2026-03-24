@@ -10,6 +10,8 @@ const examAttemptSchema = new mongoose.Schema(
     // For upload-paper attempts
     answerSheetKey: { type: String },
     answerSheetUrl: { type: String },
+    answerSheetOriginalFileName: { type: String },
+    answerSheetContentType: { type: String },
   },
   { timestamps: true }
 );

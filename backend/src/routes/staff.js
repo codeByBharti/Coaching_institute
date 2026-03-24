@@ -8,6 +8,19 @@ const StaffAttendance = require('../models/StaffAttendance');
 const Salary = require('../models/Salary');
 
 const router = express.Router();
+let salaryIndexDropTried = false;
+
+async function ensureSalaryDuplicateAllowed() {
+  if (salaryIndexDropTried) return;
+  salaryIndexDropTried = true;
+  try {
+    // Legacy unique index from older schema can still block inserts.
+    await Salary.collection.dropIndex('staff_1_month_1_year_1');
+    console.log('[staff/salaries] dropped legacy unique index staff_1_month_1_year_1');
+  } catch (e) {
+    // Ignore "index not found" style errors and continue.
+  }
+}
 
 router.use(auth(), requireRole('ADMIN'));
 
@@ -85,6 +98,7 @@ router.get('/salaries', asyncHandler(async (req, res) => {
 }));
 
 router.post('/salaries', asyncHandler(async (req, res) => {
+  await ensureSalaryDuplicateAllowed();
   const salary = await Salary.create(req.body);
   res.status(201).json(await salary.populate(['staff', 'branch']));
 }));

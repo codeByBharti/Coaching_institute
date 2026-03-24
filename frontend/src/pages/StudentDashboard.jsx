@@ -52,6 +52,50 @@ export default function StudentDashboard() {
     }
   };
 
+  const getDownloadFileName = (url) => {
+    const s = String(url || '').split('?')[0];
+    const last = s.split('/').pop() || '';
+    return last || 'download';
+  };
+
+  const buildDownloadProxyUrl = (rawUrl, fileName) => {
+    const src = resolveAssetUrl(rawUrl);
+    const name = fileName || getDownloadFileName(src);
+    const q = new URLSearchParams({ url: src, name });
+    const apiBase = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/$/, '');
+    if (apiBase) return `${apiBase}/api/files/download?${q.toString()}`;
+    return `/api/files/download?${q.toString()}`;
+  };
+
+  const buildOpenProxyUrl = (rawUrl, fileName) => {
+    const src = resolveAssetUrl(rawUrl);
+    const name = fileName || getDownloadFileName(src);
+    const q = new URLSearchParams({ url: src, name });
+    const apiBase = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/$/, '');
+    if (apiBase) return `${apiBase}/api/files/open?${q.toString()}`;
+    return `/api/files/open?${q.toString()}`;
+  };
+
+  const triggerDownload = async (downloadUrl, fileName) => {
+    try {
+      const resp = await fetch(downloadUrl, { method: 'GET', credentials: 'include' });
+      if (!resp.ok) {
+        throw new Error(`Download failed (${resp.status})`);
+      }
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e) {
+      alert('Download failed. Please try again.');
+    }
+  };
+
   /** Load lists (live classes, homework, exams, etc.) — safe to call after login. */
   const loadLists = useCallback(async () => {
     const [
@@ -317,7 +361,13 @@ export default function StudentDashboard() {
               <div key={l._id} className="content-card">
                 <div className="card-title">{l.title} · {l.subject}</div>
                 <div className="card-meta">{l.teacher?.name} · {l.durationMinutes} min</div>
-                <a href={resolveAssetUrl(l.s3Url)} target="_blank" rel="noopener noreferrer" className="btn-link">Watch</a>
+                <button
+                  type="button"
+                  className="btn-link"
+                  onClick={() => window.open(resolveAssetUrl(l.s3Url), '_blank')}
+                >
+                  Watch
+                </button>
               </div>
             ))}
           </div>
@@ -342,14 +392,34 @@ export default function StudentDashboard() {
                   )}
                 </div>
                 {(h.url || h.s3Url) && (
-                  <a
-                    href={resolveAssetUrl(h.url || h.s3Url)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-link"
-                  >
-                    {(h.type || h.materialType) === 'file' ? 'Open file' : 'Open link'}
-                  </a>
+                  (h.type || h.materialType) === 'file' ? (
+                    <button
+                      type="button"
+                      className="btn-link"
+                      onClick={() => {
+                        const downloadUrl = buildDownloadProxyUrl(
+                          h.url || h.s3Url,
+                          h.originalFileName
+                        );
+                      triggerDownload(
+                        downloadUrl,
+                        h.originalFileName || getDownloadFileName(h.url || h.s3Url)
+                      );
+                      }}
+                    >
+                      Open file
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-link"
+                      onClick={() =>
+                        window.open(resolveAssetUrl(h.url || h.s3Url), '_blank', 'noopener,noreferrer')
+                      }
+                    >
+                      Open link
+                    </button>
+                  )
                 )}
               </div>
             ))}
@@ -421,9 +491,38 @@ export default function StudentDashboard() {
                 <div style={{ width: '100%' }}>
                   <div className="muted" style={{ marginBottom: '0.5rem' }}>
                     Uploaded question paper:{' '}
-                    <a href={resolveAssetUrl(activeExam.questionPaperUrl)} target="_blank" rel="noopener noreferrer">
-                      Open
-                    </a>
+                    <span className="action-buttons" style={{ marginLeft: '0.5rem' }}>
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() => {
+                          const openUrl = buildOpenProxyUrl(
+                            activeExam.questionPaperUrl,
+                            activeExam.questionPaperOriginalFileName
+                          );
+                          window.open(openUrl, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() => {
+                          const downloadUrl = buildDownloadProxyUrl(
+                            activeExam.questionPaperUrl,
+                            activeExam.questionPaperOriginalFileName
+                          );
+                          triggerDownload(
+                            downloadUrl,
+                            activeExam.questionPaperOriginalFileName ||
+                              getDownloadFileName(activeExam.questionPaperUrl)
+                          );
+                        }}
+                      >
+                        Download
+                      </button>
+                    </span>
                   </div>
                   <div style={{ marginTop: '1rem' }}>
                     <h4>Upload Answer Sheet</h4>

@@ -25,6 +25,8 @@ const examSchema = new mongoose.Schema(
     },
     questions: [questionSchema],
     questionPaperUrl: { type: String },
+    questionPaperOriginalFileName: { type: String },
+    questionPaperContentType: { type: String },
     branch: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch' },
     batch: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

@@ -152,19 +152,31 @@ router.patch('/students/:id/status', asyncHandler(async (req, res) => {
 // Update student academic profile (studentId, branch, course, batch)
 router.patch('/students/:id/profile', asyncHandler(async (req, res) => {
   const { studentId, branch, course, batch } = req.body;
+  const user = await User.findById(req.params.id).select('role');
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  if (user.role !== 'STUDENT') {
+    return res.status(400).json({ message: 'Target user is not a student' });
+  }
+
   const update = {};
   if (studentId) update.studentId = studentId;
   if (branch !== undefined) update.branch = branch || null;
   if (course !== undefined) update.course = course || null;
   if (batch !== undefined) update.batch = batch || null;
 
+  const setOnInsert = {
+    user: req.params.id,
+    status: 'ACTIVE',
+  };
+  if (!studentId && branch) {
+    setOnInsert.studentId = await generateStudentId(branch);
+  }
+
   const profile = await StudentProfile.findOneAndUpdate(
     { user: req.params.id },
-    { $set: update },
-    { new: true }
+    { $set: update, $setOnInsert: setOnInsert },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
   ).populate(['branch', 'course', 'batch']);
-
-  if (!profile) return res.status(404).json({ message: 'Student profile not found' });
   res.json(profile);
 }));
 
@@ -189,7 +201,15 @@ router.patch('/users/:id', asyncHandler(async (req, res) => {
     if (guardianName !== undefined) update.guardianName = guardianName || null;
     if (guardianContact !== undefined) update.guardianContact = guardianContact || null;
     if (status !== undefined) update.status = status;
-    await StudentProfile.findOneAndUpdate({ user: user._id }, { $set: update }, { new: true });
+    const setOnInsert = { user: user._id, status: 'ACTIVE' };
+    if (!studentId && branch) {
+      setOnInsert.studentId = await generateStudentId(branch);
+    }
+    await StudentProfile.findOneAndUpdate(
+      { user: user._id },
+      { $set: update, $setOnInsert: setOnInsert },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
   } else if (['TEACHER', 'ACCOUNTANT'].includes(user.role)) {
     const { branch, batch, phone, designation, subjects, specialization, department } = req.body;
     const update = { user: user._id };

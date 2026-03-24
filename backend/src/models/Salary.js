@@ -13,6 +13,7 @@ const salarySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-salarySchema.index({ staff: 1, month: 1, year: 1 }, { unique: true });
+// Allow multiple salary records for same staff/month/year when admin needs duplicates.
+salarySchema.index({ staff: 1, month: 1, year: 1 });
 
 module.exports = mongoose.model('Salary', salarySchema);

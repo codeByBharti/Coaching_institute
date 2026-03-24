@@ -31,18 +31,64 @@ export default function TeacherDashboard() {
       return;
     }
     try {
-      const [lc, ex, hw, notifs] = await Promise.all([
+      const [lc, ex, hw, notifs, attemptRes] = await Promise.all([
         axios.get('/api/teacher/live-classes'),
         axios.get('/api/teacher/exams'),
         axios.get('/api/homework'),
         axios.get('/api/notifications').catch(() => ({ data: [] })),
+        axios.get('/api/teacher/exam-attempts').catch(() => ({ data: [] })),
       ]);
       setLiveClasses(lc.data);
       setExams(ex.data);
       setHomework(hw.data);
       setNotifications(notifs.data || []);
+      setAttempts(attemptRes.data || []);
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const getDownloadFileName = (url) => {
+    const s = String(url || '').split('?')[0];
+    const last = s.split('/').pop() || '';
+    return last || 'download';
+  };
+
+  const buildDownloadProxyUrl = (rawUrl, fileName) => {
+    const src = resolveAssetUrl(rawUrl);
+    const name = fileName || getDownloadFileName(src);
+    const q = new URLSearchParams({ url: src, name });
+    const apiBase = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/$/, '');
+    if (apiBase) return `${apiBase}/api/files/download?${q.toString()}`;
+    return `/api/files/download?${q.toString()}`;
+  };
+
+  const buildOpenProxyUrl = (rawUrl, fileName) => {
+    const src = resolveAssetUrl(rawUrl);
+    const name = fileName || getDownloadFileName(src);
+    const q = new URLSearchParams({ url: src, name });
+    const apiBase = (import.meta.env.VITE_API_URL || (import.meta.env.DEV ? 'http://localhost:5000' : '')).replace(/\/$/, '');
+    if (apiBase) return `${apiBase}/api/files/open?${q.toString()}`;
+    return `/api/files/open?${q.toString()}`;
+  };
+
+  const triggerDownload = async (downloadUrl, fileName) => {
+    try {
+      const resp = await fetch(downloadUrl, { method: 'GET', credentials: 'include' });
+      if (!resp.ok) {
+        throw new Error(`Download failed (${resp.status})`);
+      }
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = fileName || 'download';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (e) {
+      alert('Download failed. Please try again.');
     }
   };
 
@@ -285,14 +331,31 @@ export default function TeacherDashboard() {
                 <div className="card-meta">{h.description || '-'}</div>
                 <div className="action-buttons">
                   {(h.url || h.s3Url) && (
-                    <a
-                      href={resolveAssetUrl(h.url || h.s3Url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn-link"
-                    >
-                      {(h.type || h.materialType) === 'file' ? 'Open file' : 'Open link'}
-                    </a>
+                    (h.type || h.materialType) === 'file' ? (
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() => {
+                          const downloadUrl = buildDownloadProxyUrl(
+                            h.url || h.s3Url,
+                            h.originalFileName
+                          );
+                          triggerDownload(downloadUrl, h.originalFileName || getDownloadFileName(h.url || h.s3Url));
+                        }}
+                      >
+                        Open file
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() =>
+                          window.open(resolveAssetUrl(h.url || h.s3Url), '_blank', 'noopener,noreferrer')
+                        }
+                      >
+                        Open link
+                      </button>
+                    )
                   )}
                   <button
                     type="button"
@@ -340,11 +403,39 @@ export default function TeacherDashboard() {
                 <div>{a.submittedAt ? new Date(a.submittedAt).toLocaleString() : '-'}</div>
                 <div>
                   {a.answerSheetUrl ? (
-                    <a href={resolveAssetUrl(a.answerSheetUrl)} target="_blank" rel="noopener noreferrer" className="btn-link">
-                      Open
-                    </a>
+                    <div className="action-buttons">
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() => {
+                          const openUrl = buildOpenProxyUrl(
+                            a.answerSheetUrl,
+                            a.answerSheetOriginalFileName
+                          );
+                          window.open(openUrl, '_blank', 'noopener,noreferrer');
+                        }}
+                      >
+                        Open
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-link"
+                        onClick={() => {
+                          const downloadUrl = buildDownloadProxyUrl(
+                            a.answerSheetUrl,
+                            a.answerSheetOriginalFileName
+                          );
+                          triggerDownload(
+                            downloadUrl,
+                            a.answerSheetOriginalFileName || getDownloadFileName(a.answerSheetUrl)
+                          );
+                        }}
+                      >
+                        Download
+                      </button>
+                    </div>
                   ) : (
-                    '-'
+                    <span className="badge badge-completed">Attempted</span>
                   )}
                 </div>
               </div>

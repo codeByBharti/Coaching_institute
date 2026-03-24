@@ -109,6 +109,8 @@ router.post(
       durationMinutes: durationMinutes || 60,
       type: 'UPLOAD_PAPER',
       questionPaperUrl: uploaded.url,
+      questionPaperOriginalFileName: originalname,
+      questionPaperContentType: mimetype,
       createdBy: req.user.id,
     });
 

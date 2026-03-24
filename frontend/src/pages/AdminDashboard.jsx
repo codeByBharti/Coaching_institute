@@ -237,7 +237,7 @@ export default function AdminDashboard() {
   const saveStudentEdit = async () => {
     if (!editStudent) return;
     try {
-      await axios.patch(`/api/admin/users/${editStudent.id}`, {
+      const payload = {
         name: editStudent.name,
         email: editStudent.email,
         studentId: editStudent.studentId,
@@ -245,7 +245,51 @@ export default function AdminDashboard() {
         course: editStudent.course,
         batch: editStudent.batch,
         status: editStudent.status,
+      };
+      // Save both user details + student profile fields explicitly.
+      await axios.patch(`/api/admin/users/${editStudent.id}`, {
+        name: payload.name,
+        email: payload.email,
       });
+      await axios.patch(`/api/admin/students/${editStudent.id}/profile`, {
+        studentId: payload.studentId,
+        branch: payload.branch,
+        course: payload.course,
+        batch: payload.batch,
+      });
+      await axios.patch(`/api/admin/students/${editStudent.id}/status`, {
+        status: payload.status,
+      });
+
+      // Instant UI update (no waiting for full reload).
+      setUsers((prev) =>
+        prev.map((u) =>
+          String(u._id) !== String(editStudent.id)
+            ? u
+            : {
+                ...u,
+                name: payload.name,
+                email: payload.email,
+                studentProfile: {
+                  ...u.studentProfile,
+                  studentId: payload.studentId,
+                  status: payload.status,
+                  branch:
+                    branches.find((b) => String(b._id) === String(payload.branch)) ||
+                    u.studentProfile?.branch ||
+                    null,
+                  course:
+                    courses.find((c) => String(c._id) === String(payload.course)) ||
+                    u.studentProfile?.course ||
+                    null,
+                  batch:
+                    batches.find((b) => String(b._id) === String(payload.batch)) ||
+                    u.studentProfile?.batch ||
+                    null,
+                },
+              }
+        )
+      );
       alert('Student updated successfully');
       setEditStudent(null);
       load();
@@ -270,6 +314,20 @@ export default function AdminDashboard() {
       load();
     } catch (e) {
       alert(e.response?.data?.message || 'Failed to save staff changes');
+    }
+  };
+
+  const markSalaryPaid = async (salaryId) => {
+    try {
+      const res = await axios.patch(`/api/staff/salaries/${salaryId}`, {
+        status: 'PAID',
+        paidAt: new Date().toISOString(),
+      });
+      setSalaries((prev) =>
+        prev.map((s) => (String(s._id) === String(salaryId) ? res.data : s))
+      );
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to update salary status');
     }
   };
 
@@ -884,6 +942,7 @@ export default function AdminDashboard() {
               <div>Month</div>
               <div>Year</div>
               <div>Status</div>
+              <div>Action</div>
             </div>
             {salaries.map((sal) => (
               <div key={sal._id} className="table-row">
@@ -895,6 +954,16 @@ export default function AdminDashboard() {
                   <span className={`badge badge-${String(sal.status || 'PENDING').toLowerCase()}`}>
                     {sal.status}
                   </span>
+                </div>
+                <div>
+                  <button
+                    type="button"
+                    className="btn-link"
+                    disabled={String(sal.status).toUpperCase() === 'PAID'}
+                    onClick={() => markSalaryPaid(sal._id)}
+                  >
+                    {String(sal.status).toUpperCase() === 'PAID' ? 'Paid' : 'Mark Paid'}
+                  </button>
                 </div>
               </div>
             ))}

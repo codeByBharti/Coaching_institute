@@ -44,9 +44,35 @@ app.use('/api/batches', require('./routes/batches'));
 app.use('/api/staff', require('./routes/staff'));
 app.use('/api/homework', require('./routes/homework'));
 app.use('/api/public', require('./routes/public'));
+app.use('/api/files', require('./routes/files'));
 
 // Serve uploaded files (local fallback storage)
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Force inline viewing + correct MIME types so PDFs/DOCs/PPTs open in viewer instead of download.
+const MIME_MAP = {
+  '.pdf': 'application/pdf',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+};
+
+app.use(
+  '/uploads',
+  express.static(path.join(__dirname, '..', 'uploads'), {
+    setHeaders: (res, filePath) => {
+      // Force download but keep correct MIME types so OS can open properly.
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="${path.basename(filePath || '')}"`
+      );
+
+      const ext = path.extname(filePath || '').toLowerCase();
+      if (MIME_MAP[ext]) {
+        res.setHeader('Content-Type', MIME_MAP[ext]);
+      }
+    },
+  })
+);
 
 // Error handler (handles Mongoose validation, duplicate key, etc.)
 app.use((err, req, res, next) => {
